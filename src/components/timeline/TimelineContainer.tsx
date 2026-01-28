@@ -8,6 +8,7 @@ import { TimelineHeader } from "./TimelineHeader"
 import { TimelineGrid } from "./TimelineGrid"
 import { TimelineRow } from "./TimelineRow"
 import { TaskForm } from "./TaskForm"
+import { TaskStats } from "./TaskStats"
 import { useDrag } from "./hooks/useDrag"
 import { useViewport } from "./hooks/useViewport"
 
@@ -47,6 +48,7 @@ export function TimelineContainer() {
           Week →
         </button>
       </div>
+      <TaskStats />
       <div className="flex-1 overflow-auto relative">
         <TimelineHeader />
         <div className="relative" style={{ minHeight: gridHeight }}>
