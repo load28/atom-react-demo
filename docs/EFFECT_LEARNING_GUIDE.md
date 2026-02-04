@@ -1635,23 +1635,42 @@ function App() {
 
 기존 Atom의 값을 기반으로 새로운 값을 자동으로 계산합니다.
 
+#### 방법 1: Atom.make에 함수 전달
+
 ```typescript
-import { Atom } from "@effect-atom/core"
+import { Atom } from "@effect-atom/atom"
 
 // 기본 Atom
 const todosAtom = Atom.make<Todo[]>([])
 
-// 파생 Atom: 완료된 할일만 필터
-const completedTodosAtom = Atom.derive((get) => {
+// 파생 Atom: Atom.make에 함수를 전달하면 파생 Atom이 됨
+const completedTodosAtom = Atom.make((get) => {
   const todos = get(todosAtom)
   return todos.filter(todo => todo.completed)
 })
 
 // 파생 Atom: 완료되지 않은 할일 개수
-const remainingCountAtom = Atom.derive((get) => {
+const remainingCountAtom = Atom.make((get) => {
   const todos = get(todosAtom)
   return todos.filter(todo => !todo.completed).length
 })
+```
+
+#### 방법 2: Atom.map 사용
+
+기존 Atom을 단순 변환할 때 사용합니다.
+
+```typescript
+const countAtom = Atom.make(0)
+
+// Atom.map: 기존 Atom의 값을 변환
+const doubleCountAtom = Atom.map(countAtom, (count) => count * 2)
+const tripleCountAtom = Atom.map(countAtom, (count) => count * 3)
+
+// pipe 스타일도 가능
+const quadrupleCountAtom = countAtom.pipe(
+  Atom.map((count) => count * 4)
+)
 ```
 
 #### 여러 Atom 조합하기
@@ -1660,8 +1679,8 @@ const remainingCountAtom = Atom.derive((get) => {
 const firstNameAtom = Atom.make("Kim")
 const lastNameAtom = Atom.make("철수")
 
-// 두 Atom을 조합
-const fullNameAtom = Atom.derive((get) => {
+// 여러 Atom을 조합할 때는 Atom.make + 함수
+const fullNameAtom = Atom.make((get) => {
   const firstName = get(firstNameAtom)
   const lastName = get(lastNameAtom)
   return `${lastName} ${firstName}`
@@ -1689,15 +1708,16 @@ function TodoStats() {
 #### 핵심 특징
 
 1. **자동 업데이트**: 원본 Atom이 변경되면 파생 Atom도 자동 갱신
-2. **읽기 전용**: `Atom.derive`로 만든 Atom은 직접 수정 불가
+2. **읽기 전용**: 함수로 만든 Atom은 직접 수정 불가 (Writable이 아님)
 3. **메모이제이션**: 의존 Atom이 바뀌지 않으면 재계산하지 않음
 
 #### Derived Atom 요약
 
 | 함수 | 용도 |
 |------|------|
-| `Atom.derive((get) => ...)` | 파생 Atom 생성 |
-| `get(atom)` | 다른 Atom 값 읽기 (의존성 등록) |
+| `Atom.make((get) => ...)` | 여러 Atom 조합 가능한 파생 Atom |
+| `Atom.map(atom, fn)` | 단일 Atom 값 변환 |
+| `get(atom)` | Context에서 다른 Atom 값 읽기 |
 
 ---
 
