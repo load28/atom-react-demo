@@ -30,7 +30,7 @@
 - [x] 섹션 11: Fiber (동시성)
 - [x] 섹션 12: Schedule (재시도/반복)
 - [x] 섹션 13: Scope/Resource (리소스 관리)
-- [ ] 섹션 14: Stream (스트리밍)
+- [x] 섹션 14: Stream (스트리밍)
 - [ ] 섹션 15: 실무 조합 패턴
 
 #### Part 4: Effect-Atom
@@ -1241,6 +1241,131 @@ Effect.scoped 시작
 ---
 
 ### 섹션 14: Stream (스트리밍)
+
+#### Stream이란?
+
+**Stream = 여러 값을 시간에 걸쳐 방출하는 Effect**
+
+| 비교 | 반환 값 |
+|------|--------|
+| `Effect<A>` | 값 1개 |
+| `Stream<A>` | 값 0개 ~ 무한개 |
+
+#### Stream 만들기
+
+```typescript
+import { Stream, Effect } from "effect"
+
+Stream.make(1, 2, 3)                    // 고정 값들
+Stream.fromIterable([1, 2, 3])          // 배열에서
+Stream.range(1, 10)                     // 범위 1~10
+Stream.repeat(Effect.succeed("hello"))  // 무한 반복
+Stream.fromEffect(fetchUser(id))        // Effect에서
+```
+
+#### Stream 변환
+
+```typescript
+// map: 각 요소 변환
+Stream.make(1, 2, 3).pipe(
+  Stream.map((n) => n * 2)
+)  // 2, 4, 6
+
+// filter: 조건에 맞는 것만
+Stream.make(1, 2, 3, 4).pipe(
+  Stream.filter((n) => n % 2 === 0)
+)  // 2, 4
+
+// take: 앞에서 N개만
+Stream.range(1, 100).pipe(
+  Stream.take(3)
+)  // 1, 2, 3
+
+// flatMap: 각 요소를 Stream으로 확장
+Stream.make(1, 2).pipe(
+  Stream.flatMap((n) => Stream.make(n, n * 10))
+)  // 1, 10, 2, 20
+```
+
+#### Stream 실행
+
+```typescript
+// 배열로 수집
+const arr = await Effect.runPromise(
+  Stream.make(1, 2, 3).pipe(Stream.runCollect)
+)  // [1, 2, 3]
+
+// forEach: 각 요소에 Effect 실행
+await Effect.runPromise(
+  Stream.make(1, 2, 3).pipe(
+    Stream.runForEach((n) => Effect.log(`값: ${n}`))
+  )
+)
+
+// 합계
+const sum = await Effect.runPromise(
+  Stream.make(1, 2, 3).pipe(
+    Stream.runFold(0, (acc, n) => acc + n)
+  )
+)  // 6
+```
+
+#### 실무 예시: 페이지네이션 API
+
+```typescript
+const fetchAllUsers = Stream.paginateEffect(1, (page) =>
+  Effect.gen(function* () {
+    const response = yield* fetchUsers(page)
+
+    if (response.users.length === 0) {
+      return [response.users, Option.none()]  // 종료
+    }
+    return [response.users, Option.some(page + 1)]  // 다음 페이지
+  })
+).pipe(
+  Stream.flatMap(Stream.fromIterable)  // 배열을 개별 요소로 펼침
+)
+```
+
+**paginateEffect 반환값 형태:**
+```typescript
+[방출할 값, 다음 상태]
+// Option.some(nextPage) → 계속
+// Option.none() → 종료
+```
+
+**흐름:**
+```
+page=1 → [유저1,2,3] 방출 → Option.some(2)
+page=2 → [유저4,5] 방출 → Option.some(3)
+page=3 → [] 방출 → Option.none() → 종료
+```
+
+#### Stream 요약
+
+| 생성 | 용도 |
+|------|------|
+| `Stream.make(1, 2, 3)` | 고정 값 |
+| `Stream.fromIterable([...])` | 배열에서 |
+| `Stream.fromEffect(effect)` | Effect에서 |
+| `Stream.paginateEffect(init, fn)` | 페이지네이션 |
+
+| 변환 | 용도 |
+|------|------|
+| `map(fn)` | 각 요소 변환 |
+| `filter(pred)` | 필터링 |
+| `take(n)` | 앞에서 N개 |
+| `flatMap(fn)` | 확장 |
+
+| 실행 | 용도 |
+|------|------|
+| `runCollect` | 배열로 수집 |
+| `runForEach(fn)` | 각 요소 처리 |
+| `runFold(init, fn)` | 접기 |
+
+---
+
+### 섹션 15: 실무 조합 패턴
 
 (학습 완료 후 추가 예정)
 
