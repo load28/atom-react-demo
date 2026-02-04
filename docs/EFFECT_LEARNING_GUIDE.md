@@ -27,7 +27,7 @@
 - [ ] 섹션 10: Data.TaggedError (커스텀 에러)
 
 #### Part 3: Effect TS 심화
-- [ ] 섹션 11: Fiber (동시성)
+- [x] 섹션 11: Fiber (동시성)
 - [ ] 섹션 12: Schedule (재시도/반복)
 - [ ] 섹션 13: Scope/Resource (리소스 관리)
 - [ ] 섹션 14: Stream (스트리밍)
@@ -911,6 +911,112 @@ getUser(taskId)  // 컴파일 에러!
 ---
 
 ### 섹션 10: Data.TaggedError (커스텀 에러)
+
+(섹션 4에서 다룸 - 생략)
+
+---
+
+### 섹션 11: Fiber (동시성)
+
+#### Fiber란?
+
+**Fiber = Effect 런타임에서 시뮬레이션된 경량 가상 스레드**
+
+- JavaScript는 싱글 스레드지만 Effect는 이벤트 루프를 활용해 동시성 구현
+- Effect 실행의 "핸들"로 작동
+- 고유한 ID, 상태(Running/Suspended/Done) 보유
+
+#### Effect.fork - Fiber 생성
+
+```typescript
+import { Effect, Fiber } from "effect"
+
+const program = Effect.gen(function* () {
+  // fiber 생성 (백그라운드에서 실행 시작)
+  const fiberA = yield* Effect.fork(taskA)
+  const fiberB = yield* Effect.fork(taskB)
+
+  // 둘 다 병렬로 실행 중...
+
+  // 결과 기다리기
+  const a = yield* Fiber.join(fiberA)
+  const b = yield* Fiber.join(fiberB)
+
+  return a + b
+})
+```
+
+#### Effect.all - 간편한 병렬 실행
+
+```typescript
+// 배열로 병렬 실행
+const results = yield* Effect.all([taskA, taskB, taskC])
+// results: [결과A, 결과B, 결과C]
+
+// 객체로 병렬 실행
+const { user, posts } = yield* Effect.all({
+  user: fetchUser(id),
+  posts: fetchPosts(id)
+})
+```
+
+#### 동시성 옵션
+
+```typescript
+// 동시 실행 개수 제한
+const results = yield* Effect.all(tasks, { concurrency: 3 })
+
+// 무제한 병렬
+const results = yield* Effect.all(tasks, { concurrency: "unbounded" })
+```
+
+#### Fiber.interrupt - 취소
+
+```typescript
+const program = Effect.gen(function* () {
+  const fiber = yield* Effect.fork(longRunningTask)
+  yield* Effect.sleep("1 second")
+  yield* Fiber.interrupt(fiber)  // 취소!
+})
+```
+
+#### Effect.timeout / Effect.race
+
+```typescript
+// 타임아웃
+const withTimeout = fetchData.pipe(
+  Effect.timeout("5 seconds")
+)
+
+// 경쟁 (먼저 끝나는 것만 사용)
+const fastest = yield* Effect.race([
+  fetchFromServerA,
+  fetchFromServerB
+])
+```
+
+#### Fiber 내부 동작 원리
+
+1. **Effect는 데이터 구조**: 실행 계획(트리)일 뿐
+2. **Fiber는 인터프리터**: Effect 트리를 순회하며 해석/실행
+3. **런타임 루프**: 단계별로 명령어 실행
+4. **협력적 양보**: 자원 독점 방지를 위해 일정 단위마다 양보
+5. **비동기 처리**: Promise pending 시 Fiber 일시 중단, 재개
+
+#### Fiber 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Effect.fork(effect)` | Fiber 생성 (백그라운드 실행) |
+| `Fiber.join(fiber)` | Fiber 결과 대기 |
+| `Fiber.interrupt(fiber)` | Fiber 취소 |
+| `Effect.all([...])` | 병렬 실행 후 모든 결과 |
+| `Effect.race([...])` | 가장 빠른 것만 |
+| `Effect.timeout(duration)` | 타임아웃 설정 |
+
+---
+
+### 섹션 12: Schedule (재시도/반복)
 
 (학습 완료 후 추가 예정)
 
