@@ -35,7 +35,7 @@
 
 #### Part 4: Effect-Atom
 - [x] 섹션 16: Atom.make (기본 상태)
-- [ ] 섹션 17: Derived Atoms (파생 상태)
+- [x] 섹션 17: Derived Atoms (파생 상태)
 - [ ] 섹션 18: Atom.runtime (Effect 통합)
 - [ ] 섹션 19: React Hooks 연동
 
@@ -1628,6 +1628,80 @@ function App() {
 ---
 
 ### 섹션 17: Derived Atoms (파생 상태)
+
+#### Derived Atom이란?
+
+**Derived Atom = 다른 Atom에서 계산된 읽기 전용 상태**
+
+기존 Atom의 값을 기반으로 새로운 값을 자동으로 계산합니다.
+
+```typescript
+import { Atom } from "@effect-atom/core"
+
+// 기본 Atom
+const todosAtom = Atom.make<Todo[]>([])
+
+// 파생 Atom: 완료된 할일만 필터
+const completedTodosAtom = Atom.derive((get) => {
+  const todos = get(todosAtom)
+  return todos.filter(todo => todo.completed)
+})
+
+// 파생 Atom: 완료되지 않은 할일 개수
+const remainingCountAtom = Atom.derive((get) => {
+  const todos = get(todosAtom)
+  return todos.filter(todo => !todo.completed).length
+})
+```
+
+#### 여러 Atom 조합하기
+
+```typescript
+const firstNameAtom = Atom.make("Kim")
+const lastNameAtom = Atom.make("철수")
+
+// 두 Atom을 조합
+const fullNameAtom = Atom.derive((get) => {
+  const firstName = get(firstNameAtom)
+  const lastName = get(lastNameAtom)
+  return `${lastName} ${firstName}`
+})
+// "철수 Kim"
+```
+
+#### React에서 사용
+
+```typescript
+function TodoStats() {
+  // 파생 Atom도 동일하게 사용
+  const remainingCount = useAtomValue(remainingCountAtom)
+  const completedTodos = useAtomValue(completedTodosAtom)
+
+  return (
+    <div>
+      <p>남은 할일: {remainingCount}개</p>
+      <p>완료: {completedTodos.length}개</p>
+    </div>
+  )
+}
+```
+
+#### 핵심 특징
+
+1. **자동 업데이트**: 원본 Atom이 변경되면 파생 Atom도 자동 갱신
+2. **읽기 전용**: `Atom.derive`로 만든 Atom은 직접 수정 불가
+3. **메모이제이션**: 의존 Atom이 바뀌지 않으면 재계산하지 않음
+
+#### Derived Atom 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Atom.derive((get) => ...)` | 파생 Atom 생성 |
+| `get(atom)` | 다른 Atom 값 읽기 (의존성 등록) |
+
+---
+
+### 섹션 18: Atom.runtime (Effect 통합)
 
 (학습 완료 후 추가 예정)
 
