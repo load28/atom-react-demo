@@ -16,7 +16,7 @@
 - [x] 섹션 1: Effect란 무엇인가?
 - [x] 섹션 2: Effect.succeed / Effect.fail
 - [x] 섹션 3: Effect.gen (제너레이터 문법)
-- [ ] 섹션 4: 에러 타입과 처리
+- [x] 섹션 4: 에러 타입과 처리
 - [ ] 섹션 5: Effect 실행하기 (runSync, runPromise)
 
 #### Part 2: Effect TS 중급
@@ -208,6 +208,138 @@ const program = Effect.gen(function* () {
 ---
 
 ### 섹션 4: 에러 타입과 처리
+
+#### Effect의 에러는 타입에 드러남
+
+```typescript
+const mayFail = Effect.gen(function* () {
+  const value = yield* Effect.succeed(10)
+  if (value < 20) {
+    return yield* Effect.fail("너무 작음")
+  }
+  return value
+})
+// 타입: Effect<number, string, never>
+//                      ^^^^^^ 에러 타입이 보임!
+```
+
+#### 에러 처리 방법 1: Effect.catchAll
+
+모든 에러를 잡아서 **다른 Effect로 대체**
+
+```typescript
+const recovered = mayFail.pipe(
+  Effect.catchAll((error) => Effect.succeed(0))  // 에러 시 0 반환
+)
+// 타입: Effect<number, never, never>
+//                      ^^^^^ 에러가 사라짐
+```
+
+#### 에러 처리 방법 2: Effect.either
+
+성공/실패를 **Either 타입**으로 변환
+
+```typescript
+import { Either } from "effect"
+
+const program = Effect.gen(function* () {
+  const result = yield* Effect.either(mayFail)
+
+  if (Either.isLeft(result)) {
+    console.log("에러:", result.left)
+    return 0
+  } else {
+    console.log("성공:", result.right)
+    return result.right
+  }
+})
+// 타입: Effect<number, never, never>
+```
+
+#### 커스텀 에러 정의하기 (TaggedError)
+
+```typescript
+import { Data, Effect } from "effect"
+
+// 에러 클래스 정의
+class UserNotFound extends Data.TaggedError("UserNotFound")<{
+  readonly userId: string
+}> {}
+
+class NetworkError extends Data.TaggedError("NetworkError")<{
+  readonly message: string
+}> {}
+```
+
+#### 커스텀 에러 던지기
+
+```typescript
+const getUser = (id: string) => Effect.gen(function* () {
+  if (id === "") {
+    return yield* new UserNotFound({ userId: id })
+  }
+  if (Math.random() < 0.5) {
+    return yield* new NetworkError({ message: "연결 실패" })
+  }
+  return { id, name: "Kim" }
+})
+// 타입: Effect<User, UserNotFound | NetworkError, never>
+```
+
+#### 에러 처리 방법 3: Effect.catchTag
+
+특정 태그의 에러만 잡기
+
+```typescript
+const program = getUser("123").pipe(
+  Effect.catchTag("UserNotFound", (e) => {
+    console.log(`유저 ${e.userId}를 찾을 수 없음`)
+    return Effect.succeed({ id: "default", name: "Guest" })
+  })
+)
+// 타입: Effect<User, NetworkError, never>
+//                    ^^^^^^^^^^^^ UserNotFound만 처리됨
+```
+
+#### 에러 처리 방법 4: Effect.catchTags
+
+여러 에러 각각 처리
+
+```typescript
+const program = getUser("123").pipe(
+  Effect.catchTags({
+    UserNotFound: (e) => {
+      console.log(`유저 ${e.userId} 없음`)
+      return Effect.succeed({ id: "default", name: "Guest" })
+    },
+    NetworkError: (e) => {
+      console.log(`네트워크 오류: ${e.message}`)
+      return Effect.fail(new Error("재시도 필요"))  // 다른 에러로 변환
+    }
+  })
+)
+// 타입: Effect<User, Error, never>
+```
+
+#### 핵심 요약
+
+| 방법 | 용도 |
+|------|------|
+| `catchAll` | 모든 에러를 잡아서 대체값 반환 |
+| `either` | 에러를 값으로 변환 (분기 처리용) |
+| `catchTag` | 특정 태그의 에러만 선택적으로 처리 |
+| `catchTags` | 여러 태그 에러를 각각 처리 |
+
+| 단계 | 코드 |
+|------|------|
+| 에러 정의 | `class MyError extends Data.TaggedError("MyError")<{ data }>` |
+| 에러 던지기 | `yield* new MyError({ data })` |
+| 특정 에러 잡기 | `Effect.catchTag("MyError", handler)` |
+| 여러 에러 잡기 | `Effect.catchTags({ Error1: h1, Error2: h2 })` |
+
+---
+
+### 섹션 5: Effect 실행하기 (runSync, runPromise)
 
 (학습 완료 후 추가 예정)
 
