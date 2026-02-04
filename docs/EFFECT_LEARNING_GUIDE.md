@@ -17,7 +17,7 @@
 - [x] 섹션 2: Effect.succeed / Effect.fail
 - [x] 섹션 3: Effect.gen (제너레이터 문법)
 - [x] 섹션 4: 에러 타입과 처리
-- [ ] 섹션 5: Effect 실행하기 (runSync, runPromise)
+- [x] 섹션 5: Effect 실행하기 (runSync, runPromise)
 
 #### Part 2: Effect TS 중급
 - [ ] 섹션 6: Ref (뮤터블 상태)
@@ -340,6 +340,106 @@ const program = getUser("123").pipe(
 ---
 
 ### 섹션 5: Effect 실행하기 (runSync, runPromise)
+
+#### 지금까지는 "설명"만 했음
+
+```typescript
+const program = Effect.gen(function* () {
+  const a = yield* Effect.succeed(10)
+  const b = yield* Effect.succeed(20)
+  return a + b
+})
+// 아직 아무것도 실행 안 됨!
+```
+
+#### Effect.runSync - 동기 실행
+
+```typescript
+import { Effect } from "effect"
+
+const result = Effect.runSync(program)
+console.log(result)  // 30
+```
+
+- **즉시 실행**하고 결과 반환
+- 비동기 작업이 있으면 **에러 발생**
+- 에러가 발생하면 **throw**
+
+#### Effect.runPromise - 비동기 실행
+
+```typescript
+const asyncProgram = Effect.gen(function* () {
+  yield* Effect.sleep("1 second")  // 비동기 작업
+  return 42
+})
+
+const result = await Effect.runPromise(asyncProgram)
+console.log(result)  // 42
+```
+
+- **Promise 반환**
+- 비동기 작업 지원
+- 에러 발생 시 **reject**
+
+#### Effect.runSyncExit / Effect.runPromiseExit
+
+에러를 throw하지 않고 **Exit 타입**으로 받기
+
+```typescript
+import { Exit } from "effect"
+
+const exit = Effect.runSyncExit(mayFail)
+
+if (Exit.isSuccess(exit)) {
+  console.log("성공:", exit.value)
+} else {
+  console.log("실패:", exit.cause)
+}
+```
+
+#### 일반 실행 vs Exit 실행 비교
+
+```typescript
+// runSync - 에러가 throw됨
+try {
+  const result = Effect.runSync(mayFail)
+} catch (e) {
+  console.log("JS catch로 잡힘:", e)
+}
+
+// runSyncExit - 에러가 throw 안 됨
+const exit = Effect.runSyncExit(mayFail)  // 절대 throw 안 함
+if (Exit.isFailure(exit)) {
+  console.log("명시적 처리:", exit.cause)
+}
+```
+
+#### 실행 함수 요약
+
+| 함수 | 반환 | 비동기 | 에러 처리 |
+|------|------|--------|----------|
+| `runSync` | `A` | X | throw |
+| `runPromise` | `Promise<A>` | O | reject |
+| `runSyncExit` | `Exit<A, E>` | X | Exit로 반환 |
+| `runPromiseExit` | `Promise<Exit<A, E>>` | O | Exit로 반환 |
+
+#### 주의: R (의존성)이 never가 아니면 실행 불가
+
+```typescript
+const needsService: Effect<number, never, SomeService> = ...
+
+// 에러! SomeService가 제공되지 않음
+Effect.runSync(needsService)
+
+// 의존성을 먼저 제공해야 함
+Effect.runSync(
+  needsService.pipe(Effect.provide(SomeService.Default))
+)
+```
+
+---
+
+### 섹션 6: Ref (뮤터블 상태)
 
 (학습 완료 후 추가 예정)
 
