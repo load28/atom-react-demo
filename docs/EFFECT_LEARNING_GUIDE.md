@@ -22,7 +22,7 @@
 #### Part 2: Effect TS 중급
 - [x] 섹션 6: Ref (뮤터블 상태)
 - [x] 섹션 7: Effect.Service (의존성 주입)
-- [ ] 섹션 8: Layer 개념
+- [x] 섹션 8: Layer 개념
 - [ ] 섹션 9: Schema (타입 검증)
 - [ ] 섹션 10: Data.TaggedError (커스텀 에러)
 
@@ -661,6 +661,121 @@ const program = Effect.gen(function* () {
 ---
 
 ### 섹션 8: Layer 개념
+
+#### Layer = 서비스를 만드는 "레시피"
+
+```typescript
+import { Layer, Effect } from "effect"
+
+// Layer<제공하는것, 에러, 필요한것>
+// Layer<Out, Err, In>
+```
+
+#### 기본 Layer 만들기
+
+```typescript
+// 의존성 없는 Layer
+const LoggerLayer = Layer.succeed(Logger, {
+  log: (msg: string) => Effect.sync(() => console.log(msg))
+})
+// 타입: Layer<Logger, never, never>
+//            ^^^^^^ Logger를 제공
+//                         ^^^^^ 아무것도 필요 없음
+```
+
+#### 다른 서비스에 의존하는 Layer
+
+```typescript
+// Database는 Logger가 필요
+const DatabaseLayer = Layer.effect(
+  Database,
+  Effect.gen(function* () {
+    const logger = yield* Logger  // Logger 필요!
+
+    return {
+      findUser: (id: string) => Effect.gen(function* () {
+        yield* logger.log(`Finding user: ${id}`)
+        return { id, name: "Kim" }
+      })
+    }
+  })
+)
+// 타입: Layer<Database, never, Logger>
+//            ^^^^^^^^ Database 제공
+//                              ^^^^^^ Logger 필요
+```
+
+#### Layer.provide - 의존성 주입
+
+```typescript
+const LoggerLayer: Layer<Logger, never, never>       // Logger 제공, 의존성 없음
+const DatabaseLayer: Layer<Database, never, Logger>  // Database 제공, Logger 필요
+
+const result = DatabaseLayer.pipe(
+  Layer.provide(LoggerLayer)
+)
+// 결과: Layer<Database, never, never>
+//       DatabaseLayer의 Logger 의존성이 해결됨
+```
+
+#### Layer.merge - 둘 다 제공
+
+```typescript
+const ConfigLayer = Layer.succeed(Config, { apiUrl: "..." })
+const LoggerLayer = Layer.succeed(Logger, { ... })
+
+// 둘 다 독립적으로 제공
+const BaseLayer = Layer.merge(ConfigLayer, LoggerLayer)
+// 타입: Layer<Config | Logger, never, never>
+```
+
+#### Layer.provideMerge - 주입 + 둘 다 제공
+
+```typescript
+const BothLayer = DatabaseLayer.pipe(
+  Layer.provideMerge(LoggerLayer)
+)
+// 결과: Layer<Logger | Database, never, never>
+//       Logger 주입 + Logger도 외부에 제공
+```
+
+#### Layer 사용하기
+
+```typescript
+const program = Effect.gen(function* () {
+  const db = yield* Database
+  return yield* db.findUser("123")
+})
+
+// Layer로 모든 의존성 제공
+Effect.runPromise(
+  program.pipe(Effect.provide(AppLayer))
+)
+```
+
+#### Layer 합성 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Layer.succeed(Tag, impl)` | 간단한 Layer 생성 |
+| `Layer.effect(Tag, effect)` | Effect로 Layer 생성 (의존성 가능) |
+| `Layer.provide(inner)` | inner의 의존성 해결 (inner만 남음) |
+| `Layer.merge(a, b)` | 두 Layer 병렬 합성 (둘 다 제공) |
+| `Layer.provideMerge(inner)` | inner 의존성 해결 + inner도 제공 |
+
+```
+Logger (독립)
+   ↓ provide
+Database (Logger 필요)
+   ↓ provide
+UserService (Database 필요)
+   ↓
+AppLayer (모두 제공)
+```
+
+---
+
+### 섹션 9: Schema (타입 검증)
 
 (학습 완료 후 추가 예정)
 
