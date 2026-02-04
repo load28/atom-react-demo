@@ -37,7 +37,7 @@
 - [x] 섹션 16: Atom.make (기본 상태)
 - [x] 섹션 17: Derived Atoms (파생 상태)
 - [x] 섹션 18: Atom.runtime (Effect 통합)
-- [ ] 섹션 19: React Hooks 연동
+- [x] 섹션 19: React Hooks 연동
 
 ---
 
@@ -1900,5 +1900,181 @@ Atom.runtime.addGlobalLayer(
 
 ### 섹션 19: React Hooks 연동
 
-(학습 완료 후 추가 예정)
+#### RegistryProvider (선택적)
+
+**기본 Registry가 이미 있어서 Provider 없이도 동작합니다.**
+
+```typescript
+// Provider 없이 사용 가능 (기본 Registry 사용)
+function App() {
+  return <Counter />
+}
+
+// 커스텀 설정이 필요할 때만 Provider 사용
+import { RegistryProvider } from "@effect-atom/atom-react"
+
+function App() {
+  return (
+    <RegistryProvider
+      initialValues={[[countAtom, 10]]}
+      defaultIdleTTL={1000}
+    >
+      <Counter />
+    </RegistryProvider>
+  )
+}
+```
+
+#### RegistryProvider Props
+
+| Props | 타입 | 설명 |
+|-------|------|------|
+| `children` | `ReactNode` | 자식 컴포넌트 |
+| `initialValues` | `Iterable<[Atom, any]>` | Atom 초기값 설정 |
+| `defaultIdleTTL` | `number` | 구독 해제 후 리셋까지 대기 시간 (ms) |
+| `scheduleTask` | `(f: () => void) => void` | 커스텀 스케줄러 |
+
+#### TTL과 Atom 생명주기
+
+```typescript
+// 기본 동작: 구독자 없으면 TTL 후 리셋
+const countAtom = Atom.make(0)
+
+// keepAlive: 구독자 없어도 영구 유지
+const persistentAtom = Atom.make(0).pipe(Atom.keepAlive)
+```
+
+| 설정 | 동작 |
+|------|------|
+| 기본 | 구독 해제 → TTL 후 리셋 |
+| `keepAlive` | 영구 유지 |
+| `defaultIdleTTL: 0` | 즉시 리셋 |
+
+#### Provider 중첩 시 동작
+
+중첩된 Provider는 **별도의 Registry 인스턴스**를 생성합니다.
+
+```typescript
+<RegistryProvider>  {/* Registry A */}
+  <ComponentA />  {/* Registry A 사용 */}
+
+  <RegistryProvider>  {/* Registry B */}
+    <ComponentB />  {/* Registry B 사용 (상태 격리) */}
+  </RegistryProvider>
+</RegistryProvider>
+```
+
+#### useAtomValue - 값 읽기
+
+```typescript
+import { useAtomValue } from "@effect-atom/atom-react/Hooks"
+
+// 기본 사용
+const count = useAtomValue(countAtom)
+
+// 변환 함수 포함
+const doubled = useAtomValue(countAtom, (c) => c * 2)
+```
+
+#### useAtomSet - 값 쓰기
+
+```typescript
+import { useAtomSet } from "@effect-atom/atom-react/Hooks"
+
+const setCount = useAtomSet(countAtom)
+
+// 직접 값 설정
+setCount(10)
+
+// 이전 값 기반 업데이트
+setCount((prev) => prev + 1)
+```
+
+#### useAtomSet mode 옵션
+
+| mode | 반환 | 용도 |
+|------|------|------|
+| `"value"` (기본) | `void` | 일반적인 상태 업데이트 |
+| `"promise"` | `Promise<A>` | 비동기 완료 대기 |
+| `"promiseExit"` | `Promise<Exit<A, E>>` | 비동기 + 에러 처리 |
+
+```typescript
+// Promise 모드
+const setPromise = useAtomSet(atom, { mode: "promise" })
+const result = await setPromise(value)
+
+// Exit 모드 (runtimeAtom.fn과 함께 사용)
+const execute = useAtomSet(fnAtom, { mode: "promiseExit" })
+const exit = await execute(args)
+if (Exit.isSuccess(exit)) {
+  console.log(exit.value)
+}
+```
+
+#### useAtom - 읽기 + 쓰기
+
+```typescript
+import { useAtom } from "@effect-atom/atom-react/Hooks"
+
+const [count, setCount] = useAtom(countAtom)
+
+// mode 옵션도 사용 가능
+const [value, setPromise] = useAtom(atom, { mode: "promise" })
+```
+
+#### 추가 훅들
+
+| 훅 | 용도 |
+|-----|------|
+| `useAtomMount(atom)` | Atom 마운트 (구독 시작) |
+| `useAtomRefresh(atom)` | Atom 새로고침 함수 반환 |
+| `useAtomSubscribe(atom, callback)` | Atom 변경 구독 |
+| `useAtomInitialValues(values)` | 초기값 설정 |
+
+```typescript
+// 새로고침 (Effect Atom 재실행)
+const refresh = useAtomRefresh(userAtom)
+<button onClick={refresh}>새로고침</button>
+
+// 구독 (side effect용)
+useAtomSubscribe(countAtom, (value) => {
+  console.log("변경됨:", value)
+})
+```
+
+#### 섹션 19 요약
+
+| 훅 | 용도 |
+|-----|------|
+| `useAtomValue(atom)` | 값 읽기 |
+| `useAtomSet(atom)` | 쓰기 함수 얻기 |
+| `useAtom(atom)` | 읽기 + 쓰기 |
+| `useAtomRefresh(atom)` | Effect Atom 재실행 |
+| `useAtomSubscribe(atom, fn)` | 변경 구독 |
+
+| 컴포넌트 | 용도 |
+|---------|------|
+| `RegistryProvider` | 커스텀 Registry 설정 (선택적) |
+
+---
+
+## 학습 완료
+
+Effect TS와 Effect-Atom의 기본 개념부터 React 연동까지 학습을 완료했습니다.
+
+### 학습 흐름 요약
+
+```
+Part 1: Effect 기초
+  Effect → succeed/fail → gen → 에러 처리 → 실행
+
+Part 2: Effect 중급
+  Ref → Service → Layer → Schema
+
+Part 3: Effect 심화
+  Fiber → Schedule → Scope → Stream → 실무 패턴
+
+Part 4: Effect-Atom
+  Atom.make → 파생 Atom → Effect 통합 → React Hooks
+```
 
