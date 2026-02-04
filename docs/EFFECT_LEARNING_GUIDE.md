@@ -36,7 +36,7 @@
 #### Part 4: Effect-Atom
 - [x] 섹션 16: Atom.make (기본 상태)
 - [x] 섹션 17: Derived Atoms (파생 상태)
-- [ ] 섹션 18: Atom.runtime (Effect 통합)
+- [x] 섹션 18: Atom.runtime (Effect 통합)
 - [ ] 섹션 19: React Hooks 연동
 
 ---
@@ -1722,6 +1722,183 @@ function TodoStats() {
 ---
 
 ### 섹션 18: Atom.runtime (Effect 통합)
+
+#### Effect를 사용하는 Atom
+
+**Effect나 Stream을 `Atom.make`에 전달하면 `Result` 타입을 반환합니다.**
+
+```typescript
+import { Atom } from "@effect-atom/atom"
+import { Effect } from "effect"
+
+// Effect를 직접 전달 → Atom<Result.Result<number, never>>
+const countAtom = Atom.make(Effect.succeed(0))
+
+// 함수 형태로 Effect 반환
+const userIdAtom = Atom.make(1)
+
+const userAtom = Atom.make((get) =>
+  Effect.gen(function*() {
+    const id = get(userIdAtom)
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(`/api/users/${id}`).then(r => r.json()),
+      catch: () => new Error("Failed to fetch")
+    })
+    return response as User
+  })
+)
+// 타입: Atom<Result.Result<User, Error>>
+```
+
+#### Atom.make 오버로드 정리
+
+```typescript
+// 1. 원시값 → Writable<A> (읽기/쓰기 가능)
+Atom.make(0)  // Writable<number>
+
+// 2. 함수가 일반 값 반환 → Atom<A> (읽기 전용)
+Atom.make((get) => get(a) + 1)  // Atom<number>
+
+// 3. Effect 직접 전달 → Atom<Result<A, E>>
+Atom.make(Effect.succeed(0))  // Atom<Result.Result<number, never>>
+
+// 4. 함수가 Effect 반환 → Atom<Result<A, E>>
+Atom.make((get) => Effect.gen(...))  // Atom<Result.Result<A, E>>
+
+// 5. 함수가 Stream 반환 → Atom<Result<A, E>>
+Atom.make((get) => Stream.make(...))  // Atom<Result.Result<A, E>>
+```
+
+#### Result 타입 처리
+
+Effect Atom은 `Result` 타입을 반환합니다. 로딩/성공/실패 상태를 포함합니다.
+
+```typescript
+import { Result } from "@effect-atom/atom"
+
+function UserProfile() {
+  const result = useAtomValue(userAtom)
+
+  // Result.builder로 상태별 UI 렌더링
+  return Result.builder(result)
+    .onInitial(() => <p>로딩 중...</p>)
+    .onFailure((cause) => <p>에러 발생</p>)
+    .onSuccess((user) => <p>안녕하세요, {user.name}님!</p>)
+    .render()
+}
+```
+
+#### 왜 동기 Effect도 Result인가?
+
+Effect는 "지연 실행"이므로 동기든 비동기든 실행 라이프사이클이 있습니다:
+
+```
+컴포넌트 마운트 → Atom 구독 → Effect 실행 시작(Initial) → 완료(Success/Failure)
+```
+
+- **타입 일관성**: 동기/비동기 구분 없이 동일한 처리
+- **안전한 리팩토링**: 나중에 동기 → 비동기로 바꿔도 타입 변경 없음
+- **에러 처리**: 동기 Effect도 `Effect.fail`로 실패할 수 있음
+
+#### Atom.runtime - 서비스 의존성 주입
+
+Effect Service를 사용하려면 `Atom.runtime`으로 런타임을 생성합니다.
+
+```typescript
+import { Atom } from "@effect-atom/atom"
+import { Effect, Layer } from "effect"
+
+// 서비스 정의
+class UsersService extends Effect.Service<UsersService>()("UsersService", {
+  effect: Effect.gen(function*() {
+    return {
+      getAll: Effect.tryPromise(() =>
+        fetch("/api/users").then(r => r.json())
+      ),
+      findById: (id: string) => Effect.tryPromise(() =>
+        fetch(`/api/users/${id}`).then(r => r.json())
+      )
+    }
+  })
+}) {}
+
+// Atom.runtime으로 런타임 생성
+const runtimeAtom = Atom.runtime(UsersService.Default)
+
+// runtimeAtom.atom()으로 서비스 사용하는 Atom 생성
+const usersAtom = runtimeAtom.atom(
+  Effect.gen(function*() {
+    const users = yield* UsersService
+    return yield* users.getAll
+  })
+)
+```
+
+#### Context에서 Result Atom 읽기
+
+Effect 내에서 다른 Result Atom의 값을 읽으려면 `get.result()`를 사용합니다.
+
+```typescript
+const derivedAtom = Atom.make((get) =>
+  Effect.gen(function*() {
+    // get.result()로 Result Atom의 성공값 추출
+    const user = yield* get.result(userAtom)
+    return `${user.name}의 프로필`
+  })
+)
+```
+
+#### runtimeAtom.fn - 함수형 Atom (뮤테이션)
+
+인자를 받아 Effect를 실행하는 Atom입니다.
+
+```typescript
+const createUserAtom = runtimeAtom.fn((name: string) =>
+  Effect.gen(function*() {
+    const users = yield* UsersService
+    return yield* users.create(name)
+  })
+)
+
+// React에서 사용
+function CreateUser() {
+  const createUser = useAtomSet(createUserAtom, { mode: "promiseExit" })
+
+  const handleSubmit = async (name: string) => {
+    const exit = await createUser(name)
+    if (Exit.isSuccess(exit)) {
+      console.log("생성됨:", exit.value)
+    }
+  }
+}
+```
+
+#### 글로벌 Layer 추가
+
+앱 전체에 공통 Layer를 추가할 수 있습니다.
+
+```typescript
+import { ConfigProvider, Layer } from "effect"
+
+Atom.runtime.addGlobalLayer(
+  Layer.setConfigProvider(ConfigProvider.fromJson(import.meta.env))
+)
+```
+
+#### 섹션 18 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Atom.make(Effect)` | Effect Atom 생성 (Result 반환) |
+| `Atom.runtime(Layer)` | 서비스 의존성 주입용 런타임 생성 |
+| `runtimeAtom.atom(Effect)` | 런타임 내에서 Effect Atom 생성 |
+| `runtimeAtom.fn(fn)` | 인자를 받는 함수형 Atom |
+| `get.result(atom)` | Effect 내에서 Result Atom 값 추출 |
+| `Result.builder()` | 로딩/성공/실패 상태별 UI 렌더링 |
+
+---
+
+### 섹션 19: React Hooks 연동
 
 (학습 완료 후 추가 예정)
 
