@@ -34,7 +34,7 @@
 - [x] 섹션 15: 실무 조합 패턴
 
 #### Part 4: Effect-Atom
-- [ ] 섹션 16: Atom.make (기본 상태)
+- [x] 섹션 16: Atom.make (기본 상태)
 - [ ] 섹션 17: Derived Atoms (파생 상태)
 - [ ] 섹션 18: Atom.runtime (Effect 통합)
 - [ ] 섹션 19: React Hooks 연동
@@ -1536,6 +1536,98 @@ const fetchDashboardData = (userId: string) =>
 ---
 
 ### 섹션 16: Atom.make (기본 상태)
+
+#### Effect-Atom이란?
+
+**Effect-Atom = Effect와 통합된 React 상태 관리 라이브러리**
+
+- Jotai와 비슷한 atomic 상태 관리
+- Effect의 서비스/에러 처리와 자연스럽게 연결
+
+```typescript
+import { Atom } from "@effect-atom/core"
+```
+
+#### Atom.make - 기본 상태 만들기
+
+```typescript
+// 단순 값 상태
+const countAtom = Atom.make(0)
+
+// 객체 상태
+const userAtom = Atom.make<User | null>(null)
+
+// 배열 상태
+const todosAtom = Atom.make<Todo[]>([])
+```
+
+#### React에서 사용하기
+
+```typescript
+import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
+
+function Counter() {
+  // 읽기
+  const count = useAtomValue(countAtom)
+
+  // 쓰기 함수 얻기
+  const setCount = useAtomSet(countAtom)
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+1</button>
+      <button onClick={() => setCount(0)}>Reset</button>
+    </div>
+  )
+}
+```
+
+#### useAtom - 읽기 + 쓰기 한번에
+
+```typescript
+import { useAtom } from "@effect-atom/atom-react/Hooks"
+
+function Counter() {
+  const [count, setCount] = useAtom(countAtom)
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      {count}
+    </button>
+  )
+}
+```
+
+#### RegistryProvider 필요
+
+```typescript
+import { RegistryProvider } from "@effect-atom/atom-react"
+
+function App() {
+  return (
+    <RegistryProvider>
+      <Counter />
+    </RegistryProvider>
+  )
+}
+```
+
+#### Atom 요약
+
+| Hook | 용도 |
+|------|------|
+| `useAtomValue(atom)` | 값 읽기 |
+| `useAtomSet(atom)` | 쓰기 함수 얻기 |
+| `useAtom(atom)` | 읽기 + 쓰기 |
+
+| 함수 | 용도 |
+|------|------|
+| `Atom.make(초기값)` | 기본 상태 Atom 생성 |
+
+---
+
+### 섹션 17: Derived Atoms (파생 상태)
 
 (학습 완료 후 추가 예정)
 
