@@ -26,11 +26,18 @@
 - [x] 섹션 9: Schema (타입 검증)
 - [ ] 섹션 10: Data.TaggedError (커스텀 에러)
 
-#### Part 3: Effect-Atom
-- [ ] 섹션 11: Atom.make (기본 상태)
-- [ ] 섹션 12: Derived Atoms (파생 상태)
-- [ ] 섹션 13: Atom.runtime (Effect 통합)
-- [ ] 섹션 14: React Hooks 연동
+#### Part 3: Effect TS 심화
+- [ ] 섹션 11: Fiber (동시성)
+- [ ] 섹션 12: Schedule (재시도/반복)
+- [ ] 섹션 13: Scope/Resource (리소스 관리)
+- [ ] 섹션 14: Stream (스트리밍)
+- [ ] 섹션 15: 실무 조합 패턴
+
+#### Part 4: Effect-Atom
+- [ ] 섹션 16: Atom.make (기본 상태)
+- [ ] 섹션 17: Derived Atoms (파생 상태)
+- [ ] 섹션 18: Atom.runtime (Effect 통합)
+- [ ] 섹션 19: React Hooks 연동
 
 ---
 
