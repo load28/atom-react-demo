@@ -21,7 +21,7 @@
 
 #### Part 2: Effect TS 중급
 - [x] 섹션 6: Ref (뮤터블 상태)
-- [ ] 섹션 7: Effect.Service (의존성 주입)
+- [x] 섹션 7: Effect.Service (의존성 주입)
 - [ ] 섹션 8: Layer 개념
 - [ ] 섹션 9: Schema (타입 검증)
 - [ ] 섹션 10: Data.TaggedError (커스텀 에러)
@@ -534,6 +534,133 @@ console.log(yield* Ref.get(ref)) // 200
 ---
 
 ### 섹션 7: Effect.Service (의존성 주입)
+
+#### 문제: 의존성을 어떻게 관리?
+
+```typescript
+// 직접 import하면 테스트하기 어려움
+import { realDatabase } from "./database"
+
+const getUser = (id: string) => Effect.gen(function* () {
+  return realDatabase.findUser(id)  // 테스트 시 실제 DB 호출됨!
+})
+```
+
+#### Effect.Service - 의존성을 타입으로 표현
+
+```typescript
+import { Effect, Context } from "effect"
+
+// 서비스 정의 (Context.Tag 방식)
+class Database extends Context.Tag("Database")<
+  Database,
+  {
+    readonly findUser: (id: string) => Effect.Effect<User>
+    readonly saveUser: (user: User) => Effect.Effect<void>
+  }
+>() {}
+```
+
+#### 서비스 사용하기
+
+```typescript
+const getUser = (id: string) => Effect.gen(function* () {
+  const db = yield* Database  // 서비스 요청
+  const user = yield* db.findUser(id)
+  return user
+})
+// 타입: Effect<User, never, Database>
+//                          ^^^^^^^^ 의존성이 타입에 표시됨!
+```
+
+#### 서비스 구현 제공하기
+
+```typescript
+// 실제 구현
+const RealDatabase = Database.of({
+  findUser: (id) => Effect.succeed({ id, name: "Kim" }),
+  saveUser: (user) => Effect.succeed(undefined)
+})
+
+// 실행 시 구현 제공
+const result = Effect.runSync(
+  getUser("123").pipe(
+    Effect.provideService(Database, RealDatabase)
+  )
+)
+```
+
+#### 테스트용 Mock 구현
+
+```typescript
+const MockDatabase = Database.of({
+  findUser: (id) => Effect.succeed({ id, name: "TestUser" }),
+  saveUser: (user) => Effect.succeed(undefined)
+})
+
+// 테스트에서 Mock 제공
+const testResult = Effect.runSync(
+  getUser("123").pipe(
+    Effect.provideService(Database, MockDatabase)
+  )
+)
+```
+
+#### Effect.Service 클래스 방식 (더 간단)
+
+```typescript
+class Database extends Effect.Service<Database>()("Database", {
+  succeed: {
+    findUser: (id: string) => ({ id, name: "Kim" }),
+    saveUser: (user: User) => undefined
+  }
+}) {}
+
+// 사용
+const program = Effect.gen(function* () {
+  const db = yield* Database
+  return db.findUser("123")
+})
+
+// 실행 (Default 자동 생성됨)
+Effect.runSync(program.pipe(Effect.provide(Database.Default)))
+```
+
+#### 서비스 내부에 Ref 포함 (상태 공유)
+
+```typescript
+class CounterService extends Effect.Service<CounterService>()("CounterService", {
+  effect: Effect.gen(function* () {
+    const ref = yield* Ref.make(0)  // 서비스 초기화 시 생성
+
+    return {
+      increment: Ref.update(ref, (n) => n + 1),
+      get: Ref.get(ref)
+    }
+  })
+}) {}
+
+// 여러 곳에서 같은 Ref 공유
+const program = Effect.gen(function* () {
+  const counter = yield* CounterService
+  yield* counter.increment
+  yield* counter.increment
+  return yield* counter.get  // 2
+})
+```
+
+#### 핵심 요약
+
+| 개념 | 설명 |
+|------|------|
+| `Context.Tag` | 서비스 타입 정의 |
+| `yield* ServiceTag` | 서비스 요청 (의존성 발생) |
+| `Effect.provideService` | 구현 제공 |
+| `Effect.Service` | 간편한 서비스 클래스 정의 |
+
+---
+
+### 섹션 8: Layer 개념
 
 (학습 완료 후 추가 예정)
 
