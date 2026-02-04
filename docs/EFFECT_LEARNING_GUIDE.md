@@ -28,7 +28,7 @@
 
 #### Part 3: Effect TS 심화
 - [x] 섹션 11: Fiber (동시성)
-- [ ] 섹션 12: Schedule (재시도/반복)
+- [x] 섹션 12: Schedule (재시도/반복)
 - [ ] 섹션 13: Scope/Resource (리소스 관리)
 - [ ] 섹션 14: Stream (스트리밍)
 - [ ] 섹션 15: 실무 조합 패턴
@@ -1017,6 +1017,115 @@ const fastest = yield* Effect.race([
 ---
 
 ### 섹션 12: Schedule (재시도/반복)
+
+#### Schedule이란?
+
+**Schedule = 재시도/반복 정책을 정의하는 데이터 구조**
+
+```typescript
+import { Schedule, Effect } from "effect"
+```
+
+#### Effect.retry - 실패 시 재시도
+
+```typescript
+const unreliableApi = Effect.tryPromise({
+  try: () => fetch("/api/data"),
+  catch: () => new Error("네트워크 오류")
+})
+
+// 최대 3번 재시도
+const withRetry = unreliableApi.pipe(
+  Effect.retry(Schedule.recurs(3))
+)
+```
+
+#### Effect.repeat - 성공 시 반복
+
+```typescript
+const pollData = Effect.tryPromise(() => fetch("/api/status"))
+
+// 5번 반복
+const repeated = pollData.pipe(
+  Effect.repeat(Schedule.recurs(5))
+)
+```
+
+#### 기본 Schedule들
+
+```typescript
+Schedule.recurs(3)          // 3번
+Schedule.spaced("1 second") // 1초 간격
+Schedule.exponential("1 second")  // 지수 백오프 (1초, 2초, 4초...)
+Schedule.forever            // 영원히
+Schedule.upTo("10 seconds") // 특정 시간까지
+```
+
+#### Schedule 조합
+
+```typescript
+// AND: 둘 다 만족해야 계속
+Schedule.recurs(5).pipe(
+  Schedule.intersect(Schedule.spaced("1 second"))
+)
+// → 최대 5번, 1초 간격
+
+// OR: 둘 중 하나라도 만족하면 계속
+Schedule.recurs(3).pipe(
+  Schedule.union(Schedule.spaced("500 millis"))
+)
+
+// THEN: 첫 번째 끝나면 두 번째
+Schedule.recurs(2).pipe(
+  Schedule.andThen(Schedule.spaced("1 second").pipe(Schedule.recurs(3)))
+)
+// → 2번 즉시 → 3번 1초 간격
+```
+
+#### 지수 백오프 + 최대 횟수 (실무 패턴)
+
+```typescript
+const retryPolicy = Schedule.exponential("100 millis").pipe(
+  Schedule.intersect(Schedule.recurs(5)),       // 최대 5번
+  Schedule.intersect(Schedule.upTo("30 seconds")) // 최대 30초
+)
+
+const robust = unreliableApi.pipe(
+  Effect.retry(retryPolicy)
+)
+// 100ms → 200ms → 400ms → 800ms → 1600ms
+```
+
+#### Schedule.whileInput - 조건부 재시도
+
+```typescript
+// 특정 에러일 때만 재시도
+const retryOnNetwork = Schedule.recurs(3).pipe(
+  Schedule.whileInput((error: Error) =>
+    error.message.includes("network")
+  )
+)
+```
+
+#### Schedule 요약
+
+| Schedule | 용도 |
+|----------|------|
+| `recurs(n)` | n번 |
+| `spaced(duration)` | 고정 간격 |
+| `exponential(base)` | 지수 백오프 |
+| `forever` | 무한 |
+| `upTo(duration)` | 최대 시간 |
+
+| 조합 | 의미 |
+|------|------|
+| `intersect(a, b)` | a AND b |
+| `union(a, b)` | a OR b |
+| `andThen(a, b)` | a 후 b |
+
+---
+
+### 섹션 13: Scope/Resource (리소스 관리)
 
 (학습 완료 후 추가 예정)
 
