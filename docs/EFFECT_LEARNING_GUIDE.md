@@ -29,7 +29,7 @@
 #### Part 3: Effect TS 심화
 - [x] 섹션 11: Fiber (동시성)
 - [x] 섹션 12: Schedule (재시도/반복)
-- [ ] 섹션 13: Scope/Resource (리소스 관리)
+- [x] 섹션 13: Scope/Resource (리소스 관리)
 - [ ] 섹션 14: Stream (스트리밍)
 - [ ] 섹션 15: 실무 조합 패턴
 
@@ -1126,6 +1126,121 @@ const retryOnNetwork = Schedule.recurs(3).pipe(
 ---
 
 ### 섹션 13: Scope/Resource (리소스 관리)
+
+#### 문제: 리소스를 안전하게 정리하기
+
+```typescript
+// 문제: 에러 발생 시 파일이 닫히지 않음!
+const file = openFile("data.txt")
+const data = readFile(file)  // 여기서 에러 발생하면?
+closeFile(file)              // 이 줄이 실행 안 됨!
+```
+
+#### Effect.acquireRelease - 획득과 해제 보장
+
+```typescript
+import { Effect } from "effect"
+
+const withFile = Effect.acquireRelease(
+  // acquire: 리소스 획득
+  Effect.sync(() => openFile("data.txt")),
+
+  // release: 항상 실행됨 (에러 발생해도!)
+  (file) => Effect.sync(() => closeFile(file))
+)
+```
+
+#### Effect.scoped - 스코프 내에서 사용
+
+```typescript
+const program = Effect.scoped(
+  Effect.gen(function* () {
+    const file = yield* withFile  // 파일 획득
+    const data = yield* readFromFile(file)
+    return data
+  })
+  // 여기서 자동으로 closeFile 호출!
+)
+```
+
+#### 여러 리소스 관리
+
+```typescript
+const withDbAndFile = Effect.scoped(
+  Effect.gen(function* () {
+    const db = yield* acquireDbConnection
+    const file = yield* acquireFileHandle
+
+    const result = yield* doWork(db, file)
+
+    return result
+  })
+  // 역순으로 해제: file 먼저, 그 다음 db
+)
+```
+
+#### Effect.ensuring - 간단한 cleanup
+
+```typescript
+const program = doSomething.pipe(
+  Effect.ensuring(
+    Effect.sync(() => console.log("항상 실행됨"))
+  )
+)
+```
+
+#### 실무 예시: DB 트랜잭션
+
+```typescript
+const withTransaction = Effect.acquireRelease(
+  // acquire: 트랜잭션 시작
+  Effect.tryPromise(() => db.beginTransaction()),
+
+  // release: exit 결과에 따라 commit 또는 rollback
+  (tx, exit) =>
+    Exit.isSuccess(exit)
+      ? Effect.tryPromise(() => tx.commit())
+      : Effect.tryPromise(() => tx.rollback())
+)
+
+const program = Effect.scoped(
+  Effect.gen(function* () {
+    const tx = yield* withTransaction
+    yield* tx.query("INSERT INTO users ...")
+    yield* tx.query("UPDATE accounts ...")
+    return "완료"
+  })
+)
+// 성공 → commit, 실패 → rollback
+```
+
+#### 흐름 정리
+
+```
+Effect.scoped 시작
+    │
+    ├─ acquire: 리소스 획득
+    │
+    ├─ 스코프 내 작업 실행
+    │   └─ 에러 발생 가능
+    │
+    └─ release: (리소스, exit) => ...
+        ├─ exit = Success → 정상 해제
+        └─ exit = Failure → 에러 처리 후 해제
+```
+
+#### Scope 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Effect.acquireRelease(acquire, release)` | 리소스 획득/해제 정의 |
+| `Effect.scoped(effect)` | 스코프 종료 시 자동 해제 |
+| `Effect.ensuring(finalizer)` | 항상 실행되는 cleanup |
+| `release(resource, exit)` | exit으로 성공/실패 여부 판단 |
+
+---
+
+### 섹션 14: Stream (스트리밍)
 
 (학습 완료 후 추가 예정)
 
