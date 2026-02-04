@@ -20,7 +20,7 @@
 - [x] 섹션 5: Effect 실행하기 (runSync, runPromise)
 
 #### Part 2: Effect TS 중급
-- [ ] 섹션 6: Ref (뮤터블 상태)
+- [x] 섹션 6: Ref (뮤터블 상태)
 - [ ] 섹션 7: Effect.Service (의존성 주입)
 - [ ] 섹션 8: Layer 개념
 - [ ] 섹션 9: Schema (타입 검증)
@@ -440,6 +440,100 @@ Effect.runSync(
 ---
 
 ### 섹션 6: Ref (뮤터블 상태)
+
+#### 문제: Effect 내에서 상태를 어떻게 관리?
+
+```typescript
+// 이렇게 하면 안 됨 (외부 변수 직접 변경)
+let count = 0
+const program = Effect.gen(function* () {
+  count++  // 부수효과! Effect의 순수성 깨짐
+  return count
+})
+```
+
+#### Ref - Effect 친화적인 뮤터블 상태
+
+```typescript
+import { Effect, Ref } from "effect"
+
+const program = Effect.gen(function* () {
+  // Ref 생성 (초기값 0)
+  const countRef = yield* Ref.make(0)
+
+  // 값 읽기
+  const current = yield* Ref.get(countRef)  // 0
+
+  // 값 변경
+  yield* Ref.set(countRef, 10)
+
+  // 변경된 값 읽기
+  const updated = yield* Ref.get(countRef)  // 10
+
+  return updated
+})
+```
+
+#### 주요 Ref 연산
+
+```typescript
+const program = Effect.gen(function* () {
+  const ref = yield* Ref.make(0)
+
+  // get: 현재 값 읽기
+  const value = yield* Ref.get(ref)
+
+  // set: 값 덮어쓰기
+  yield* Ref.set(ref, 100)
+
+  // update: 현재 값 기반으로 변경
+  yield* Ref.update(ref, (n) => n + 1)  // 100 -> 101
+
+  // modify: 변경하면서 결과도 반환
+  const oldValue = yield* Ref.modify(ref, (n) => [n, n * 2])
+  // oldValue = 101, ref는 이제 202
+
+  return yield* Ref.get(ref)  // 202
+})
+```
+
+#### Ref.modify 상세
+
+```typescript
+Ref.modify(ref, (현재값) => [반환할값, 새로저장할값])
+```
+
+```typescript
+const ref = yield* Ref.make(100)
+
+const result = yield* Ref.modify(ref, (current) => [
+  `이전 값은 ${current}`,  // 반환할 값
+  current * 2              // Ref에 저장할 새 값
+])
+
+console.log(result)              // "이전 값은 100"
+console.log(yield* Ref.get(ref)) // 200
+```
+
+#### Ref 연산 요약
+
+| 함수 | 역할 | 반환 |
+|------|------|------|
+| `Ref.make(초기값)` | Ref 생성 | `Effect<Ref<A>>` |
+| `Ref.get(ref)` | 값 읽기 | `Effect<A>` |
+| `Ref.set(ref, 값)` | 값 덮어쓰기 | `Effect<void>` |
+| `Ref.update(ref, fn)` | 함수로 변경 | `Effect<void>` |
+| `Ref.modify(ref, fn)` | 변경 + 결과 반환 | `Effect<B>` |
+
+#### 왜 Ref를 사용하나?
+
+1. **순수성 유지**: 상태 변경이 Effect 안에서 추적됨
+2. **타입 안전**: Ref<number>는 number만 담을 수 있음
+3. **동시성 안전**: 여러 fiber에서 안전하게 접근 가능
+
+---
+
+### 섹션 7: Effect.Service (의존성 주입)
 
 (학습 완료 후 추가 예정)
 
