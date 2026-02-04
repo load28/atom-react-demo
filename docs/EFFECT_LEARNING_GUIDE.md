@@ -15,7 +15,7 @@
 #### Part 1: Effect TS 기초
 - [x] 섹션 1: Effect란 무엇인가?
 - [x] 섹션 2: Effect.succeed / Effect.fail
-- [ ] 섹션 3: Effect.gen (제너레이터 문법)
+- [x] 섹션 3: Effect.gen (제너레이터 문법)
 - [ ] 섹션 4: 에러 타입과 처리
 - [ ] 섹션 5: Effect 실행하기 (runSync, runPromise)
 
@@ -143,6 +143,71 @@ const effect3 = Effect.tryPromise({
 ---
 
 ### 섹션 3: Effect.gen (제너레이터 문법)
+
+#### 문제: Effect를 연결하는 방법
+
+```typescript
+const getUser = Effect.succeed({ id: 1, name: "Kim" })
+const getAge = Effect.succeed(25)
+
+// 두 Effect의 결과를 합치고 싶다면?
+```
+
+#### Effect.gen - async/await와 비슷한 문법
+
+```typescript
+const program = Effect.gen(function* () {
+  const user = yield* getUser    // Effect에서 값 꺼내기
+  const age = yield* getAge      // 또 다른 Effect에서 값 꺼내기
+
+  return `${user.name}는 ${age}살`  // 최종 결과
+})
+// 타입: Effect<string, never, never>
+```
+
+#### 비교: async/await vs Effect.gen
+
+```typescript
+// async/await
+async function example() {
+  const user = await getUser()
+  const age = await getAge()
+  return `${user.name}는 ${age}살`
+}
+
+// Effect.gen
+const example = Effect.gen(function* () {
+  const user = yield* getUser
+  const age = yield* getAge
+  return `${user.name}는 ${age}살`
+})
+```
+
+| async/await | Effect.gen |
+|-------------|------------|
+| `async function` | `Effect.gen(function* () { ... })` |
+| `await` | `yield*` |
+| Promise 반환 | Effect 반환 |
+
+#### 핵심 포인트
+
+1. `yield*`는 Effect에서 **성공값을 꺼냄**
+2. 중간에 실패하면 **전체가 실패**로 끝남
+3. 아직 **실행된 게 아님** (여전히 설명일 뿐)
+
+```typescript
+const program = Effect.gen(function* () {
+  const a = yield* Effect.succeed(10)
+  const b = yield* Effect.fail("에러!")  // 여기서 멈춤
+  const c = yield* Effect.succeed(20)    // 실행 안 됨
+  return a + c
+})
+// 타입: Effect<number, string, never>
+```
+
+---
+
+### 섹션 4: 에러 타입과 처리
 
 (학습 완료 후 추가 예정)
 
