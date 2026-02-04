@@ -31,7 +31,7 @@
 - [x] 섹션 12: Schedule (재시도/반복)
 - [x] 섹션 13: Scope/Resource (리소스 관리)
 - [x] 섹션 14: Stream (스트리밍)
-- [ ] 섹션 15: 실무 조합 패턴
+- [x] 섹션 15: 실무 조합 패턴
 
 #### Part 4: Effect-Atom
 - [ ] 섹션 16: Atom.make (기본 상태)
@@ -1366,6 +1366,176 @@ page=3 → [] 방출 → Option.none() → 종료
 ---
 
 ### 섹션 15: 실무 조합 패턴
+
+#### 예시 1: API 클라이언트 (Service + Schema + Retry + Timeout)
+
+```typescript
+import { Effect, Schema, Schedule, Data } from "effect"
+
+// 1. 에러 정의
+class ApiError extends Data.TaggedError("ApiError")<{
+  readonly status: number
+  readonly message: string
+}> {}
+
+class NetworkError extends Data.TaggedError("NetworkError")<{
+  readonly cause: unknown
+}> {}
+
+// 2. 응답 스키마
+const UserSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String
+})
+type User = typeof UserSchema.Type
+
+// 3. API 서비스 정의
+class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+  effect: Effect.gen(function* () {
+    const baseUrl = "https://api.example.com"
+
+    const request = <A>(
+      path: string,
+      schema: Schema.Schema<A>
+    ): Effect.Effect<A, ApiError | NetworkError> =>
+      Effect.gen(function* () {
+        const response = yield* Effect.tryPromise({
+          try: () => fetch(`${baseUrl}${path}`),
+          catch: (e) => new NetworkError({ cause: e })
+        })
+
+        if (!response.ok) {
+          return yield* new ApiError({
+            status: response.status,
+            message: `HTTP ${response.status}`
+          })
+        }
+
+        const json = yield* Effect.tryPromise({
+          try: () => response.json(),
+          catch: (e) => new NetworkError({ cause: e })
+        })
+
+        return yield* Schema.decodeUnknown(schema)(json).pipe(
+          Effect.mapError(() => new ApiError({
+            status: 422,
+            message: "Invalid response schema"
+          }))
+        )
+      })
+
+    return { request }
+  })
+}) {}
+
+// 4. 실제 사용: 재시도 + 타임아웃
+const getUser = (id: string) =>
+  Effect.gen(function* () {
+    const api = yield* ApiClient
+    return yield* api.request(`/users/${id}`, UserSchema)
+  }).pipe(
+    Effect.retry(
+      Schedule.exponential("100 millis").pipe(
+        Schedule.intersect(Schedule.recurs(3))
+      )
+    ),
+    Effect.timeout("5 seconds"),
+    Effect.catchTag("TimeoutException", () =>
+      Effect.fail(new ApiError({ status: 408, message: "Timeout" }))
+    )
+  )
+```
+
+#### 예시 2: 배치 처리 (Stream + Concurrency + Resource)
+
+```typescript
+const processBatch = Effect.scoped(
+  Effect.gen(function* () {
+    const db = yield* acquireDbConnection
+
+    const users = Stream.fromIterable(largeUserList)
+
+    yield* users.pipe(
+      Stream.grouped(100),  // 100개씩 묶기
+      Stream.mapEffect(
+        (batch) => db.insertMany(batch),
+        { concurrency: 5 }  // 5개 청크 병렬
+      ),
+      Stream.runDrain
+    )
+
+    return "완료"
+  })
+)
+```
+
+#### 예시 3: 트랜잭션 + 에러 복구
+
+```typescript
+const transferMoney = (from: string, to: string, amount: number) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const tx = yield* withTransaction
+
+      const fromAccount = yield* tx.query(`
+        UPDATE accounts SET balance = balance - $1
+        WHERE id = $2 RETURNING balance
+      `, [amount, from])
+
+      if (fromAccount.balance < 0) {
+        return yield* new InsufficientFunds({ accountId: from })
+      }
+
+      yield* tx.query(`
+        UPDATE accounts SET balance = balance + $1
+        WHERE id = $2
+      `, [amount, to])
+
+      return { from, to, amount }
+    })
+  ).pipe(
+    Effect.catchTag("InsufficientFunds", (e) =>
+      Effect.succeed({ error: `잔액 부족: ${e.accountId}` })
+    ),
+    Effect.retry(Schedule.recurs(3))
+  )
+```
+
+#### 예시 4: 병렬 API 호출 + 부분 실패 허용
+
+```typescript
+const fetchDashboardData = (userId: string) =>
+  Effect.gen(function* () {
+    const results = yield* Effect.all({
+      user: getUser(userId).pipe(Effect.either),
+      posts: getPosts(userId).pipe(Effect.either),
+      notifications: getNotifications(userId).pipe(Effect.either)
+    })
+
+    return {
+      user: Either.isRight(results.user) ? results.user.right : null,
+      posts: Either.isRight(results.posts) ? results.posts.right : [],
+      notifications: Either.isRight(results.notifications)
+        ? results.notifications.right
+        : []
+    }
+  })
+```
+
+#### 조합 패턴 요약
+
+| 패턴 | 조합 |
+|------|------|
+| **안정적 API 호출** | Service + Schema + Retry + Timeout |
+| **배치 처리** | Stream + grouped + concurrency |
+| **트랜잭션** | acquireRelease + scoped + catchTag |
+| **부분 실패 허용** | Effect.all + either |
+| **의존성 주입** | Service + Layer + provide |
+
+---
+
+### 섹션 16: Atom.make (기본 상태)
 
 (학습 완료 후 추가 예정)
 
