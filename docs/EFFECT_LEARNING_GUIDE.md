@@ -23,7 +23,7 @@
 - [x] 섹션 6: Ref (뮤터블 상태)
 - [x] 섹션 7: Effect.Service (의존성 주입)
 - [x] 섹션 8: Layer 개념
-- [ ] 섹션 9: Schema (타입 검증)
+- [x] 섹션 9: Schema (타입 검증)
 - [ ] 섹션 10: Data.TaggedError (커스텀 에러)
 
 #### Part 3: Effect-Atom
@@ -776,6 +776,134 @@ AppLayer (모두 제공)
 ---
 
 ### 섹션 9: Schema (타입 검증)
+
+#### 문제: 런타임에서 타입을 어떻게 검증?
+
+```typescript
+// TypeScript 타입은 컴파일 타임에만 존재
+type User = { name: string; age: number }
+
+// 런타임에 외부 데이터가 들어오면?
+const data = JSON.parse(response)  // any 타입, 검증 안 됨
+```
+
+#### Schema - 타입 정의 + 런타임 검증
+
+```typescript
+import { Schema } from "effect"
+
+// 스키마 정의 = 타입 + 검증 규칙
+const User = Schema.Struct({
+  name: Schema.String,
+  age: Schema.Number
+})
+
+// 타입 추출
+type User = typeof User.Type
+// { name: string; age: number }
+```
+
+#### 데이터 검증하기
+
+```typescript
+// decode: unknown -> User (검증)
+const result = Schema.decodeUnknownSync(User)({
+  name: "Kim",
+  age: 25
+})
+// 성공: { name: "Kim", age: 25 }
+
+// 실패 시 에러 throw
+Schema.decodeUnknownSync(User)({
+  name: "Kim",
+  age: "스물다섯"  // string이라 실패
+})
+// ParseError: Expected number, got string
+```
+
+#### Effect와 함께 사용
+
+```typescript
+const parseUser = Schema.decodeUnknown(User)
+// 타입: (input: unknown) => Effect<User, ParseError>
+
+const program = Effect.gen(function* () {
+  const user = yield* parseUser(jsonData)
+  return user.name
+})
+```
+
+#### 유용한 Schema들
+
+```typescript
+// 기본 타입
+Schema.String
+Schema.Number
+Schema.Boolean
+
+// 제약 조건
+Schema.NonEmptyString              // 빈 문자열 불가
+Schema.Int                         // 정수만
+Schema.Positive                    // 양수만
+Schema.Int.pipe(Schema.between(0, 100))  // 0~100
+
+// 선택적 필드
+Schema.Struct({
+  name: Schema.String,
+  nickname: Schema.optional(Schema.String)
+})
+
+// 배열
+Schema.Array(Schema.String)        // string[]
+
+// 유니온
+Schema.Union(Schema.String, Schema.Number)  // string | number
+
+// 리터럴
+Schema.Literal("admin", "user")    // "admin" | "user"
+```
+
+#### Brand 타입 (식별용 타입)
+
+```typescript
+const UserId = Schema.String.pipe(Schema.brand("UserId"))
+type UserId = typeof UserId.Type
+
+const TaskId = Schema.String.pipe(Schema.brand("TaskId"))
+type TaskId = typeof TaskId.Type
+
+// 컴파일 에러: UserId와 TaskId는 호환 안 됨
+const userId: UserId = "123" as UserId
+const taskId: TaskId = userId  // Error!
+```
+
+#### Brand 타입 활용
+
+```typescript
+// 함수 시그니처에 Brand 타입 사용
+function getUser(userId: UserId) { ... }
+function getTask(taskId: TaskId) { ... }
+
+const userId = Schema.decodeUnknownSync(UserId)("user-123")
+const taskId = Schema.decodeUnknownSync(TaskId)("task-456")
+
+getUser(userId)  // OK
+getUser(taskId)  // 컴파일 에러!
+```
+
+#### 핵심 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Schema.Struct({...})` | 객체 스키마 정의 |
+| `Schema.decodeUnknownSync` | 동기 검증 (throw) |
+| `Schema.decodeUnknown` | Effect로 검증 |
+| `Schema.brand("Name")` | Brand 타입 생성 |
+| `typeof Schema.Type` | 타입 추출 |
+
+---
+
+### 섹션 10: Data.TaggedError (커스텀 에러)
 
 (학습 완료 후 추가 예정)
 
