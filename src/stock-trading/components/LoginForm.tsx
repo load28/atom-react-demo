@@ -1,25 +1,21 @@
 "use client"
 
-import { useState } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
-import { Exit } from "effect"
-import { currentUserAtom, loginAtom, logoutAtom } from "@/src/stock-trading/atoms/auth"
+import { currentUserAtom, loginAtom, loginErrorAtom, logoutAtom } from "@/src/stock-trading/atoms/auth"
 
 export const LoginForm = () => {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-
   const currentUser = useAtomValue(currentUserAtom)
-  const login = useAtomSet(loginAtom, { mode: "promiseExit" })
+  const login = useAtomSet(loginAtom)
   const logout = useAtomSet(logoutAtom)
+  const error = useAtomValue(loginErrorAtom)
 
-  const handleLogin = async () => {
-    setError("")
-    const exit = await login({ username, password })
-    if (Exit.isFailure(exit)) {
-      setError("로그인 실패: 아이디 또는 비밀번호를 확인하세요")
-    }
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    login({
+      username: formData.get("username") as string,
+      password: formData.get("password") as string,
+    })
   }
 
   if (currentUser) {
@@ -40,21 +36,19 @@ export const LoginForm = () => {
   return (
     <form
       className="flex items-center gap-2"
-      onSubmit={(e) => { e.preventDefault(); handleLogin() }}
+      onSubmit={handleSubmit}
     >
       <input
         type="text"
+        name="username"
         placeholder="아이디"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
         data-testid="username-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <input
         type="password"
+        name="password"
         placeholder="비밀번호"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
         data-testid="password-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />

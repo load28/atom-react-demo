@@ -1,38 +1,62 @@
-import { Effect, Ref, HashMap, Option } from "effect"
+import { Effect } from "effect"
 import type { Stock, StockSymbol } from "@/src/stock-trading/domain/model"
-import { StockNotFound } from "@/src/stock-trading/domain/errors"
+import { StockNotFound, ApiError } from "@/src/stock-trading/domain/errors"
 
-const INITIAL_STOCKS: ReadonlyArray<Stock> = [
-  { symbol: "AAPL" as StockSymbol, name: "Apple Inc.", price: 178.5, previousClose: 176.0 },
-  { symbol: "GOOGL" as StockSymbol, name: "Alphabet Inc.", price: 141.8, previousClose: 140.2 },
-  { symbol: "MSFT" as StockSymbol, name: "Microsoft Corp.", price: 378.9, previousClose: 375.0 },
-  { symbol: "TSLA" as StockSymbol, name: "Tesla Inc.", price: 248.5, previousClose: 252.0 },
-  { symbol: "AMZN" as StockSymbol, name: "Amazon.com Inc.", price: 185.6, previousClose: 183.0 },
-]
+const API_BASE =
+  typeof window !== "undefined" && window.location?.protocol?.startsWith("http")
+    ? ""
+    : "http://localhost"
 
 export class StockService extends Effect.Service<StockService>()("StockService", {
   effect: Effect.gen(function* () {
-    const store = yield* Ref.make(
-      HashMap.fromIterable(INITIAL_STOCKS.map((s) => [s.symbol, s] as const))
-    )
-
     const getAllStocks = () =>
-      Effect.map(Ref.get(store), (map) => [...HashMap.values(map)])
+      Effect.gen(function* () {
+        const res = yield* Effect.tryPromise({
+          try: () => fetch(`${API_BASE}/api/stocks`),
+          catch: (e) => new ApiError({ message: String(e) }),
+        })
+        if (!res.ok) {
+          return yield* Effect.fail(new ApiError({ message: `HTTP ${res.status}` }))
+        }
+        return yield* Effect.tryPromise({
+          try: () => res.json() as Promise<ReadonlyArray<Stock>>,
+          catch: (e) => new ApiError({ message: String(e) }),
+        })
+      })
 
     const getStock = (symbol: StockSymbol) =>
-      Effect.flatMap(Ref.get(store), (map) =>
-        Option.match(HashMap.get(map, symbol), {
-          onNone: () => Effect.fail(new StockNotFound({ symbol })),
-          onSome: Effect.succeed,
+      Effect.gen(function* () {
+        const res = yield* Effect.tryPromise({
+          try: () => fetch(`${API_BASE}/api/stocks/${symbol}`),
+          catch: () => new StockNotFound({ symbol }),
         })
-      )
+        if (!res.ok) {
+          return yield* Effect.fail(new StockNotFound({ symbol }))
+        }
+        return yield* Effect.tryPromise({
+          try: () => res.json() as Promise<Stock>,
+          catch: () => new StockNotFound({ symbol }),
+        })
+      })
 
     const updatePrice = (symbol: StockSymbol, newPrice: number) =>
       Effect.gen(function* () {
-        const stock = yield* getStock(symbol)
-        const updated: Stock = { ...stock, previousClose: stock.price, price: newPrice }
-        yield* Ref.update(store, HashMap.set(symbol, updated))
-        return updated
+        const res = yield* Effect.tryPromise({
+          try: () =>
+            fetch(`${API_BASE}/api/stocks/${symbol}/price`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ price: newPrice }),
+            }),
+          catch: () => new StockNotFound({ symbol }),
+        })
+        if (!res.ok) {
+          return yield* Effect.fail(new StockNotFound({ symbol }))
+        }
+        return yield* Effect.tryPromise({
+          try: () => res.json() as Promise<Stock>,
+          catch: () => new StockNotFound({ symbol }),
+        })
       })
 
     return { getAllStocks, getStock, updatePrice } as const
