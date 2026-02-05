@@ -1,5 +1,5 @@
-import { TimelineContainer } from "@/src/components/timeline/TimelineContainer"
+import { StockTradingApp } from "@/src/stock-trading/components/App"
 
 export default function Home() {
-  return <TimelineContainer />
+  return <StockTradingApp />
 }
