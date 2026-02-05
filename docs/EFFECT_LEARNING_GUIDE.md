@@ -35,9 +35,14 @@
 
 #### Part 4: Effect-Atom
 - [x] 섹션 16: Atom.make (기본 상태)
-- [ ] 섹션 17: Derived Atoms (파생 상태)
-- [ ] 섹션 18: Atom.runtime (Effect 통합)
-- [ ] 섹션 19: React Hooks 연동
+- [x] 섹션 17: Derived Atoms (파생 상태)
+- [x] 섹션 18: Atom.runtime (Effect 통합)
+- [x] 섹션 19: React Hooks 연동
+
+#### Part 5: 함수형 아키텍처 & 실무 패턴
+- [x] 섹션 20: 계층 분리 패턴 (Service → Atom → Component)
+- [x] 섹션 21: AtomHttpApi (서버 상태 관리)
+- [x] 섹션 22: 테스트 패턴 (Effect DI 활용)
 
 ---
 
@@ -1629,5 +1634,881 @@ function App() {
 
 ### 섹션 17: Derived Atoms (파생 상태)
 
-(학습 완료 후 추가 예정)
+#### Derived Atom이란?
+
+**Derived Atom = 다른 Atom에서 계산된 읽기 전용 상태**
+
+기존 Atom의 값을 기반으로 새로운 값을 자동으로 계산합니다.
+
+#### 방법 1: Atom.make에 함수 전달
+
+```typescript
+import { Atom } from "@effect-atom/atom"
+
+// 기본 Atom
+const todosAtom = Atom.make<Todo[]>([])
+
+// 파생 Atom: Atom.make에 함수를 전달하면 파생 Atom이 됨
+const completedTodosAtom = Atom.make((get) => {
+  const todos = get(todosAtom)
+  return todos.filter(todo => todo.completed)
+})
+
+// 파생 Atom: 완료되지 않은 할일 개수
+const remainingCountAtom = Atom.make((get) => {
+  const todos = get(todosAtom)
+  return todos.filter(todo => !todo.completed).length
+})
+```
+
+#### 방법 2: Atom.map 사용
+
+기존 Atom을 단순 변환할 때 사용합니다.
+
+```typescript
+const countAtom = Atom.make(0)
+
+// Atom.map: 기존 Atom의 값을 변환
+const doubleCountAtom = Atom.map(countAtom, (count) => count * 2)
+const tripleCountAtom = Atom.map(countAtom, (count) => count * 3)
+
+// pipe 스타일도 가능
+const quadrupleCountAtom = countAtom.pipe(
+  Atom.map((count) => count * 4)
+)
+```
+
+#### 여러 Atom 조합하기
+
+```typescript
+const firstNameAtom = Atom.make("Kim")
+const lastNameAtom = Atom.make("철수")
+
+// 여러 Atom을 조합할 때는 Atom.make + 함수
+const fullNameAtom = Atom.make((get) => {
+  const firstName = get(firstNameAtom)
+  const lastName = get(lastNameAtom)
+  return `${lastName} ${firstName}`
+})
+// "철수 Kim"
+```
+
+#### React에서 사용
+
+```typescript
+function TodoStats() {
+  // 파생 Atom도 동일하게 사용
+  const remainingCount = useAtomValue(remainingCountAtom)
+  const completedTodos = useAtomValue(completedTodosAtom)
+
+  return (
+    <div>
+      <p>남은 할일: {remainingCount}개</p>
+      <p>완료: {completedTodos.length}개</p>
+    </div>
+  )
+}
+```
+
+#### 핵심 특징
+
+1. **자동 업데이트**: 원본 Atom이 변경되면 파생 Atom도 자동 갱신
+2. **읽기 전용**: 함수로 만든 Atom은 직접 수정 불가 (Writable이 아님)
+3. **메모이제이션**: 의존 Atom이 바뀌지 않으면 재계산하지 않음
+
+#### Derived Atom 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Atom.make((get) => ...)` | 여러 Atom 조합 가능한 파생 Atom |
+| `Atom.map(atom, fn)` | 단일 Atom 값 변환 |
+| `get(atom)` | Context에서 다른 Atom 값 읽기 |
+
+---
+
+### 섹션 18: Atom.runtime (Effect 통합)
+
+#### Effect를 사용하는 Atom
+
+**Effect나 Stream을 `Atom.make`에 전달하면 `Result` 타입을 반환합니다.**
+
+```typescript
+import { Atom } from "@effect-atom/atom"
+import { Effect } from "effect"
+
+// Effect를 직접 전달 → Atom<Result.Result<number, never>>
+const countAtom = Atom.make(Effect.succeed(0))
+
+// 함수 형태로 Effect 반환
+const userIdAtom = Atom.make(1)
+
+const userAtom = Atom.make((get) =>
+  Effect.gen(function*() {
+    const id = get(userIdAtom)
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(`/api/users/${id}`).then(r => r.json()),
+      catch: () => new Error("Failed to fetch")
+    })
+    return response as User
+  })
+)
+// 타입: Atom<Result.Result<User, Error>>
+```
+
+#### Atom.make 오버로드 정리
+
+```typescript
+// 1. 원시값 → Writable<A> (읽기/쓰기 가능)
+Atom.make(0)  // Writable<number>
+
+// 2. 함수가 일반 값 반환 → Atom<A> (읽기 전용)
+Atom.make((get) => get(a) + 1)  // Atom<number>
+
+// 3. Effect 직접 전달 → Atom<Result<A, E>>
+Atom.make(Effect.succeed(0))  // Atom<Result.Result<number, never>>
+
+// 4. 함수가 Effect 반환 → Atom<Result<A, E>>
+Atom.make((get) => Effect.gen(...))  // Atom<Result.Result<A, E>>
+
+// 5. 함수가 Stream 반환 → Atom<Result<A, E>>
+Atom.make((get) => Stream.make(...))  // Atom<Result.Result<A, E>>
+```
+
+#### Result 타입 처리
+
+Effect Atom은 `Result` 타입을 반환합니다. 로딩/성공/실패 상태를 포함합니다.
+
+```typescript
+import { Result } from "@effect-atom/atom"
+
+function UserProfile() {
+  const result = useAtomValue(userAtom)
+
+  // Result.builder로 상태별 UI 렌더링
+  return Result.builder(result)
+    .onInitial(() => <p>로딩 중...</p>)
+    .onFailure((cause) => <p>에러 발생</p>)
+    .onSuccess((user) => <p>안녕하세요, {user.name}님!</p>)
+    .render()
+}
+```
+
+#### 왜 동기 Effect도 Result인가?
+
+Effect는 "지연 실행"이므로 동기든 비동기든 실행 라이프사이클이 있습니다:
+
+```
+컴포넌트 마운트 → Atom 구독 → Effect 실행 시작(Initial) → 완료(Success/Failure)
+```
+
+- **타입 일관성**: 동기/비동기 구분 없이 동일한 처리
+- **안전한 리팩토링**: 나중에 동기 → 비동기로 바꿔도 타입 변경 없음
+- **에러 처리**: 동기 Effect도 `Effect.fail`로 실패할 수 있음
+
+#### Atom.runtime - 서비스 의존성 주입
+
+Effect Service를 사용하려면 `Atom.runtime`으로 런타임을 생성합니다.
+
+```typescript
+import { Atom } from "@effect-atom/atom"
+import { Effect, Layer } from "effect"
+
+// 서비스 정의
+class UsersService extends Effect.Service<UsersService>()("UsersService", {
+  effect: Effect.gen(function*() {
+    return {
+      getAll: Effect.tryPromise(() =>
+        fetch("/api/users").then(r => r.json())
+      ),
+      findById: (id: string) => Effect.tryPromise(() =>
+        fetch(`/api/users/${id}`).then(r => r.json())
+      )
+    }
+  })
+}) {}
+
+// Atom.runtime으로 런타임 생성
+const runtimeAtom = Atom.runtime(UsersService.Default)
+
+// runtimeAtom.atom()으로 서비스 사용하는 Atom 생성
+const usersAtom = runtimeAtom.atom(
+  Effect.gen(function*() {
+    const users = yield* UsersService
+    return yield* users.getAll
+  })
+)
+```
+
+#### Context에서 Result Atom 읽기
+
+Effect 내에서 다른 Result Atom의 값을 읽으려면 `get.result()`를 사용합니다.
+
+```typescript
+const derivedAtom = Atom.make((get) =>
+  Effect.gen(function*() {
+    // get.result()로 Result Atom의 성공값 추출
+    const user = yield* get.result(userAtom)
+    return `${user.name}의 프로필`
+  })
+)
+```
+
+#### runtimeAtom.fn - 함수형 Atom (뮤테이션)
+
+인자를 받아 Effect를 실행하는 Atom입니다.
+
+```typescript
+const createUserAtom = runtimeAtom.fn((name: string) =>
+  Effect.gen(function*() {
+    const users = yield* UsersService
+    return yield* users.create(name)
+  })
+)
+
+// React에서 사용
+function CreateUser() {
+  const createUser = useAtomSet(createUserAtom, { mode: "promiseExit" })
+
+  const handleSubmit = async (name: string) => {
+    const exit = await createUser(name)
+    if (Exit.isSuccess(exit)) {
+      console.log("생성됨:", exit.value)
+    }
+  }
+}
+```
+
+#### 글로벌 Layer 추가
+
+앱 전체에 공통 Layer를 추가할 수 있습니다.
+
+```typescript
+import { ConfigProvider, Layer } from "effect"
+
+Atom.runtime.addGlobalLayer(
+  Layer.setConfigProvider(ConfigProvider.fromJson(import.meta.env))
+)
+```
+
+#### 섹션 18 요약
+
+| 함수 | 용도 |
+|------|------|
+| `Atom.make(Effect)` | Effect Atom 생성 (Result 반환) |
+| `Atom.runtime(Layer)` | 서비스 의존성 주입용 런타임 생성 |
+| `runtimeAtom.atom(Effect)` | 런타임 내에서 Effect Atom 생성 |
+| `runtimeAtom.fn(fn)` | 인자를 받는 함수형 Atom |
+| `get.result(atom)` | Effect 내에서 Result Atom 값 추출 |
+| `Result.builder()` | 로딩/성공/실패 상태별 UI 렌더링 |
+
+---
+
+### 섹션 19: React Hooks 연동
+
+#### RegistryProvider (선택적)
+
+**기본 Registry가 이미 있어서 Provider 없이도 동작합니다.**
+
+```typescript
+// Provider 없이 사용 가능 (기본 Registry 사용)
+function App() {
+  return <Counter />
+}
+
+// 커스텀 설정이 필요할 때만 Provider 사용
+import { RegistryProvider } from "@effect-atom/atom-react"
+
+function App() {
+  return (
+    <RegistryProvider
+      initialValues={[[countAtom, 10]]}
+      defaultIdleTTL={1000}
+    >
+      <Counter />
+    </RegistryProvider>
+  )
+}
+```
+
+#### RegistryProvider Props
+
+| Props | 타입 | 설명 |
+|-------|------|------|
+| `children` | `ReactNode` | 자식 컴포넌트 |
+| `initialValues` | `Iterable<[Atom, any]>` | Atom 초기값 설정 |
+| `defaultIdleTTL` | `number` | 구독 해제 후 리셋까지 대기 시간 (ms) |
+| `scheduleTask` | `(f: () => void) => void` | 커스텀 스케줄러 |
+
+#### TTL과 Atom 생명주기
+
+```typescript
+// 기본 동작: 구독자 없으면 TTL 후 리셋
+const countAtom = Atom.make(0)
+
+// keepAlive: 구독자 없어도 영구 유지
+const persistentAtom = Atom.make(0).pipe(Atom.keepAlive)
+```
+
+| 설정 | 동작 |
+|------|------|
+| 기본 | 구독 해제 → TTL 후 리셋 |
+| `keepAlive` | 영구 유지 |
+| `defaultIdleTTL: 0` | 즉시 리셋 |
+
+#### Provider 중첩 시 동작
+
+중첩된 Provider는 **별도의 Registry 인스턴스**를 생성합니다.
+
+```typescript
+<RegistryProvider>  {/* Registry A */}
+  <ComponentA />  {/* Registry A 사용 */}
+
+  <RegistryProvider>  {/* Registry B */}
+    <ComponentB />  {/* Registry B 사용 (상태 격리) */}
+  </RegistryProvider>
+</RegistryProvider>
+```
+
+#### useAtomValue - 값 읽기
+
+```typescript
+import { useAtomValue } from "@effect-atom/atom-react/Hooks"
+
+// 기본 사용
+const count = useAtomValue(countAtom)
+
+// 변환 함수 포함
+const doubled = useAtomValue(countAtom, (c) => c * 2)
+```
+
+#### useAtomSet - 값 쓰기
+
+```typescript
+import { useAtomSet } from "@effect-atom/atom-react/Hooks"
+
+const setCount = useAtomSet(countAtom)
+
+// 직접 값 설정
+setCount(10)
+
+// 이전 값 기반 업데이트
+setCount((prev) => prev + 1)
+```
+
+#### useAtomSet mode 옵션
+
+| mode | 반환 | 용도 |
+|------|------|------|
+| `"value"` (기본) | `void` | 일반적인 상태 업데이트 |
+| `"promise"` | `Promise<A>` | 비동기 완료 대기 |
+| `"promiseExit"` | `Promise<Exit<A, E>>` | 비동기 + 에러 처리 |
+
+```typescript
+// Promise 모드
+const setPromise = useAtomSet(atom, { mode: "promise" })
+const result = await setPromise(value)
+
+// Exit 모드 (runtimeAtom.fn과 함께 사용)
+const execute = useAtomSet(fnAtom, { mode: "promiseExit" })
+const exit = await execute(args)
+if (Exit.isSuccess(exit)) {
+  console.log(exit.value)
+}
+```
+
+#### useAtom - 읽기 + 쓰기
+
+```typescript
+import { useAtom } from "@effect-atom/atom-react/Hooks"
+
+const [count, setCount] = useAtom(countAtom)
+
+// mode 옵션도 사용 가능
+const [value, setPromise] = useAtom(atom, { mode: "promise" })
+```
+
+#### 추가 훅들
+
+| 훅 | 용도 |
+|-----|------|
+| `useAtomMount(atom)` | Atom 마운트 (구독 시작) |
+| `useAtomRefresh(atom)` | Atom 새로고침 함수 반환 |
+| `useAtomSubscribe(atom, callback)` | Atom 변경 구독 |
+| `useAtomInitialValues(values)` | 초기값 설정 |
+
+```typescript
+// 새로고침 (Effect Atom 재실행)
+const refresh = useAtomRefresh(userAtom)
+<button onClick={refresh}>새로고침</button>
+
+// 구독 (side effect용)
+useAtomSubscribe(countAtom, (value) => {
+  console.log("변경됨:", value)
+})
+```
+
+#### 섹션 19 요약
+
+| 훅 | 용도 |
+|-----|------|
+| `useAtomValue(atom)` | 값 읽기 |
+| `useAtomSet(atom)` | 쓰기 함수 얻기 |
+| `useAtom(atom)` | 읽기 + 쓰기 |
+| `useAtomRefresh(atom)` | Effect Atom 재실행 |
+| `useAtomSubscribe(atom, fn)` | 변경 구독 |
+
+| 컴포넌트 | 용도 |
+|---------|------|
+| `RegistryProvider` | 커스텀 Registry 설정 (선택적) |
+
+---
+
+### 섹션 20: 계층 분리 패턴 (Service → Atom → Component)
+
+#### 핵심 원칙
+
+React 상태를 최소화하고, 비즈니스 로직을 React 바깥으로 분리합니다.
+
+```
+┌─────────────────────────────────────────┐
+│        React Components                 │  ← UI만 (useAtomValue, useAtomSet)
+├─────────────────────────────────────────┤
+│           Atoms                         │  ← 반응형 상태 연결
+├─────────────────────────────────────────┤
+│        Effect Services                  │  ← 순수 비즈니스 로직
+├─────────────────────────────────────────┤
+│           Layers                        │  ← 의존성 조립
+└─────────────────────────────────────────┘
+```
+
+#### 1단계: Service 정의 - 순수 비즈니스 로직
+
+> 출처: Effect 공식 문서 - Context.Tag 기반 서비스 정의
+
+```typescript
+// services/UserService.ts
+import { Effect, Context } from "effect"
+
+class UserService extends Context.Tag("UserService")<
+  UserService,
+  {
+    readonly getUser: (id: string) => Effect.Effect<User, UserNotFoundError>
+    readonly createUser: (data: CreateUserInput) => Effect.Effect<User, ValidationError>
+  }
+>() {}
+```
+
+**핵심**: Service는 React와 완전히 독립적입니다. Effect만 반환하므로 단독 테스트 가능합니다.
+
+#### 2단계: Layer 구현 - 실제 동작
+
+> 출처: Effect 공식 문서 - Layer.succeed, Effect.provideService
+
+```typescript
+// services/UserServiceLive.ts
+import { Layer } from "effect"
+
+const UserServiceLive = Layer.succeed(UserService, {
+  getUser: (id) => Effect.gen(function*() {
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(`/api/users/${id}`).then(r => r.json()),
+      catch: () => new UserNotFoundError({ id })
+    })
+    return yield* Schema.decodeUnknown(UserSchema)(response)
+  }),
+  createUser: (data) => Effect.gen(function*() {
+    const validated = yield* Schema.decodeUnknown(CreateUserSchema)(data)
+    return yield* Effect.tryPromise({
+      try: () => fetch("/api/users", {
+        method: "POST",
+        body: JSON.stringify(validated)
+      }).then(r => r.json()),
+      catch: () => new ValidationError({ message: "생성 실패" })
+    })
+  })
+})
+```
+
+#### 3단계: Atom 연결 - 반응형 상태
+
+> 출처: effect-atom README - Atom.runtime, runtimeAtom.atom, runtimeAtom.fn
+
+```typescript
+// atoms/userAtoms.ts
+import { Atom } from "@effect-atom/atom"
+
+// 런타임 생성 (서비스 주입)
+const runtimeAtom = Atom.runtime(UserServiceLive)
+
+// UI 상태 (Writable)
+const currentUserIdAtom = Atom.make<string | null>(null)
+
+// 서버 데이터 (Effect Atom → Result 타입)
+const userAtom = runtimeAtom.atom(
+  Effect.gen(function*() {
+    const userService = yield* UserService
+    return yield* userService.getUser("123")
+  })
+)
+
+// 뮤테이션 (runtimeAtom.fn)
+const createUserAtom = runtimeAtom.fn((data: CreateUserInput) =>
+  Effect.gen(function*() {
+    const userService = yield* UserService
+    return yield* userService.createUser(data)
+  })
+)
+```
+
+#### 4단계: Component - UI만 담당
+
+> 출처: effect-atom README - useAtomValue, useAtomSet, Result.builder
+
+```typescript
+// components/UserProfile.tsx
+import { Result, useAtomValue } from "@effect-atom/atom-react"
+
+function UserProfile() {
+  const result = useAtomValue(userAtom)
+
+  return Result.builder(result)
+    .onInitial(() => <Skeleton />)
+    .onFailure((cause) => <ErrorMessage cause={cause} />)
+    .onSuccess((user) => <UserCard user={user} />)
+    .render()
+}
+
+// 순수 Presentational 컴포넌트 (props만 받음)
+function UserCard({ user }: { user: User }) {
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  )
+}
+```
+
+#### Component 규칙
+
+- `useState` 최소화 (폼 입력 같은 로컬 UI 상태만)
+- 비즈니스 로직 없음
+- Atom에서 읽고(`useAtomValue`), Atom에 쓰기(`useAtomSet`)만
+
+#### 각 계층의 역할 요약
+
+| 계층 | 역할 | React 의존 |
+|------|------|-----------|
+| Service | 비즈니스 로직 정의 (인터페이스) | X |
+| Layer | 실제 구현 (API 호출 등) | X |
+| Atom | 반응형 상태 + Service 연결 | X |
+| Component | UI 렌더링만 | O |
+
+---
+
+### 섹션 21: AtomHttpApi (서버 상태 관리)
+
+> 출처: effect-atom README의 AtomHttpApi 예제 (원문 그대로)
+
+#### AtomHttpApi란?
+
+**React Query/SWR과 유사한 역할**을 Effect 생태계 안에서 수행합니다.
+
+- query: 데이터 조회 + 캐싱
+- mutation: 데이터 변경 + 캐시 무효화
+- reactivityKeys: 캐시 키 (React Query의 queryKey와 유사)
+
+#### 1. API 정의 (@effect/platform)
+
+```typescript
+import {
+  HttpApi, HttpApiEndpoint, HttpApiGroup
+} from "@effect/platform"
+import { Schema } from "effect"
+
+class Api extends HttpApi.make("api").add(
+  HttpApiGroup.make("counter").add(
+    HttpApiEndpoint.get("count", "/count").addSuccess(Schema.Number)
+  ).add(
+    HttpApiEndpoint.post("increment", "/increment")
+  )
+) {}
+```
+
+#### 2. 클라이언트 생성 (AtomHttpApi.Tag)
+
+```typescript
+import {
+  AtomHttpApi,
+  Result,
+  useAtomSet,
+  useAtomValue
+} from "@effect-atom/atom-react"
+import { FetchHttpClient } from "@effect/platform"
+
+class CountClient extends AtomHttpApi.Tag<CountClient>()("CountClient", {
+  api: Api,
+  httpClient: FetchHttpClient.layer,
+  baseUrl: "http://localhost:3000"
+}) {}
+```
+
+#### 3. Query + Mutation 사용
+
+```typescript
+function Counter() {
+  // Query: reactivityKeys로 캐시 키 등록
+  const count = useAtomValue(CountClient.query("counter", "count", {
+    reactivityKeys: ["count"]
+  }))
+
+  // Mutation
+  const increment = useAtomSet(CountClient.mutation("counter", "increment"))
+
+  return (
+    <div>
+      <p>Count: {Result.getOrElse(count, () => 0)}</p>
+      <button
+        onClick={() =>
+          increment({
+            payload: void 0,
+            reactivityKeys: ["count"]  // mutation 완료 시 "count" 키 무효화
+          })}
+      >
+        Increment
+      </button>
+    </div>
+  )
+}
+```
+
+#### 동작 흐름
+
+```
+1. query("counter", "count", { reactivityKeys: ["count"] })
+   → API 호출 → 결과를 Result로 반환 → "count" 키에 등록
+
+2. mutation("counter", "increment") 실행
+   → API 호출 → 완료 후 reactivityKeys: ["count"] 무효화
+
+3. "count" 키가 무효화됨
+   → query가 자동으로 다시 실행 → UI 갱신
+```
+
+#### query 옵션 (소스 확인됨)
+
+| 옵션 | 타입 | 용도 |
+|------|------|------|
+| `reactivityKeys` | `ReadonlyArray<unknown>` | 캐시 무효화 키 |
+| `timeToLive` | `Duration` | 캐시 TTL |
+| `withResponse` | `boolean` | 응답 객체 포함 여부 |
+
+#### Atom.withReactivity (소스 확인됨)
+
+AtomHttpApi 없이 일반 Atom에도 반응성을 추가할 수 있습니다.
+
+```typescript
+// 소스 시그니처:
+// withReactivity(keys: ReadonlyArray<unknown> | ReadonlyRecord<...>)
+
+const myAtom = runtimeAtom.atom(
+  Effect.gen(function*() { ... })
+).pipe(
+  Atom.withReactivity(["count"])
+)
+```
+
+#### Atom.family (소스 확인됨)
+
+동일 인자에 대해 같은 Atom 인스턴스를 반환합니다. (WeakRef 기반 캐싱)
+
+> 출처: effect-atom README + Atom.ts 소스
+
+```typescript
+// README 예제
+const userAtom = Atom.family((id: string) =>
+  runtimeAtom.atom(
+    Effect.gen(function*() {
+      const users = yield* Users
+      return yield* users.findById(id)
+    })
+  )
+)
+
+// 같은 id → 같은 인스턴스 반환
+const atom1 = userAtom("user-1")  // 새 인스턴스
+const atom2 = userAtom("user-1")  // 동일 인스턴스 (atom1 === atom2)
+```
+
+#### 섹션 21 요약
+
+| API | 용도 | 출처 |
+|-----|------|------|
+| `AtomHttpApi.Tag` | HTTP 클라이언트 생성 | README |
+| `.query(group, endpoint, opts)` | 데이터 조회 + 캐싱 | README |
+| `.mutation(group, endpoint)` | 데이터 변경 | README |
+| `reactivityKeys` | 캐시 무효화 키 | README + 소스 |
+| `timeToLive` | 캐시 TTL | 소스 시그니처 |
+| `Atom.withReactivity` | 일반 Atom 반응성 | 소스 시그니처 |
+| `Atom.family` | 동적 Atom 캐싱 | README + 소스 |
+
+---
+
+### 섹션 22: 테스트 패턴 (Effect DI 활용)
+
+#### 핵심: Service 분리 = 테스트 용이성
+
+> 출처: Effect 공식 문서 - provideService로 Mock 주입
+
+계층 분리의 가장 큰 이점은 **Service를 교체해서 테스트**할 수 있다는 것입니다.
+
+#### 1. Service 테스트 (React 없이)
+
+```typescript
+// 테스트용 Mock 구현
+const UserServiceTest = Layer.succeed(UserService, {
+  getUser: (id) => Effect.succeed({ id, name: "TestUser", email: "test@test.com" }),
+  createUser: (data) => Effect.succeed({ id: "new-1", ...data })
+})
+
+// Effect만 테스트 (React 불필요)
+describe("UserService", () => {
+  it("getUser", async () => {
+    const program = Effect.gen(function*() {
+      const service = yield* UserService
+      return yield* service.getUser("123")
+    })
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(UserServiceTest))
+    )
+
+    expect(result.name).toBe("TestUser")
+  })
+})
+```
+
+#### 2. 에러 케이스 테스트
+
+```typescript
+const UserServiceFailing = Layer.succeed(UserService, {
+  getUser: (id) => new UserNotFoundError({ id }),
+  createUser: (data) => new ValidationError({ message: "invalid" })
+})
+
+it("getUser 실패 시 에러 반환", async () => {
+  const program = Effect.gen(function*() {
+    const service = yield* UserService
+    return yield* service.getUser("없는유저")
+  })
+
+  const exit = await Effect.runPromiseExit(
+    program.pipe(Effect.provide(UserServiceFailing))
+  )
+
+  expect(Exit.isFailure(exit)).toBe(true)
+})
+```
+
+#### 3. 비즈니스 로직 조합 테스트
+
+```typescript
+// 여러 서비스를 조합한 로직
+const transferMoney = (from: string, to: string, amount: number) =>
+  Effect.gen(function*() {
+    const accountService = yield* AccountService
+    const notificationService = yield* NotificationService
+
+    yield* accountService.withdraw(from, amount)
+    yield* accountService.deposit(to, amount)
+    yield* notificationService.send(to, `${amount}원 입금됨`)
+
+    return { from, to, amount }
+  })
+
+// 테스트: 두 서비스 모두 Mock
+const TestLayer = Layer.mergeAll(
+  AccountServiceTest,
+  NotificationServiceTest
+)
+
+it("이체 성공", async () => {
+  const result = await Effect.runPromise(
+    transferMoney("A", "B", 1000).pipe(
+      Effect.provide(TestLayer)
+    )
+  )
+  expect(result.amount).toBe(1000)
+})
+```
+
+#### 4. Component는 얇게 유지
+
+```typescript
+// Component는 로직이 없으므로 테스트 부담이 작음
+function TransferButton({ from, to, amount }: Props) {
+  const transfer = useAtomSet(transferAtom, { mode: "promiseExit" })
+
+  return (
+    <button onClick={() => transfer({ from, to, amount })}>
+      이체
+    </button>
+  )
+}
+// → 스냅샷 테스트나 간단한 렌더링 테스트로 충분
+```
+
+#### 테스트 전략 요약
+
+| 계층 | 테스트 방법 | 난이도 |
+|------|-----------|--------|
+| **Service** | `Effect.provide(MockLayer)` → `Effect.runPromise` | 쉬움 |
+| **Atom** | Registry 생성 후 Atom 구독 테스트 | 보통 |
+| **Component** | 렌더링 + 스냅샷 (로직 없으므로 간단) | 쉬움 |
+
+#### 왜 이 패턴이 효과적인가
+
+```
+기존 방식:
+  Component (useState + useEffect + 로직 + UI)
+  → 테스트하려면 React 렌더링 필요
+  → Mock이 어려움
+  → 결합도 높음
+
+함수형 분리:
+  Service (순수 Effect)    → React 없이 테스트
+  Atom (상태 연결)         → Registry로 테스트
+  Component (UI만)         → 간단한 렌더링 테스트
+```
+
+---
+
+## 학습 완료
+
+Effect TS와 Effect-Atom의 기본 개념부터 아키텍처 패턴까지 학습을 완료했습니다.
+
+### 학습 흐름 요약
+
+```
+Part 1: Effect 기초
+  Effect → succeed/fail → gen → 에러 처리 → 실행
+
+Part 2: Effect 중급
+  Ref → Service → Layer → Schema
+
+Part 3: Effect 심화
+  Fiber → Schedule → Scope → Stream → 실무 패턴
+
+Part 4: Effect-Atom
+  Atom.make → 파생 Atom → Effect 통합 → React Hooks
+
+Part 5: 함수형 아키텍처
+  계층 분리 → AtomHttpApi → 테스트 패턴
+```
+
+### 출처
+
+- [Effect 공식 문서](https://effect.website/docs/requirements-management/services)
+- [effect-atom GitHub README](https://github.com/tim-smart/effect-atom)
+- [effect-atom 소스 코드](https://github.com/tim-smart/effect-atom/tree/main/packages/atom/src)
 
