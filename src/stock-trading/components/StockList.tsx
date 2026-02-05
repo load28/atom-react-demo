@@ -1,16 +1,13 @@
 "use client"
 
-import { useEffect } from "react"
-import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
+import { useAtomValue, useAtomRefresh } from "@effect-atom/atom-react/Hooks"
 import * as Result from "@effect-atom/atom/Result"
 import { stocksWithChangeAtom, fetchStocksAtom } from "@/src/stock-trading/atoms/stock"
 
 export const StockList = () => {
   const result = useAtomValue(fetchStocksAtom)
   const stocks = useAtomValue(stocksWithChangeAtom)
-  const fetchStocks = useAtomSet(fetchStocksAtom)
-
-  useEffect(() => { fetchStocks("cached") }, [])
+  const refresh = useAtomRefresh(fetchStocksAtom)
 
   const isWaiting = Result.isWaiting(result)
 
@@ -22,7 +19,7 @@ export const StockList = () => {
           {isWaiting && <span className="text-xs text-gray-400">갱신 중...</span>}
           {Result.isSuccess(result) && !isWaiting && (
             <button
-              onClick={() => fetchStocks("fresh")}
+              onClick={refresh}
               className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
             >
               새로고침
@@ -35,7 +32,7 @@ export const StockList = () => {
         <div className="px-5 py-8 text-center">
           <p className="text-sm text-red-500">시세 정보를 불러올 수 없습니다</p>
           <button
-            onClick={() => fetchStocks("fresh")}
+            onClick={refresh}
             className="mt-2 text-sm text-blue-600 hover:underline"
           >
             다시 시도

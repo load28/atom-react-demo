@@ -1,46 +1,20 @@
 import { Atom } from "@effect-atom/atom-react"
-import { Effect } from "effect"
 import * as Result from "@effect-atom/atom/Result"
 import type { Stock, StockSymbol } from "@/src/stock-trading/domain/model"
 import { calculatePriceChange } from "@/src/stock-trading/domain/calculator"
-import { StockService } from "@/src/stock-trading/services/stock-service"
+import { StockApiClient } from "@/src/stock-trading/client"
 
-const runtimeAtom = Atom.runtime(StockService.Default)
+// reactivityKeys: mutation 실행 시 query 자동 리프레시
+const stocksKey = ["stocks"] as const
 
-// 캐시된 Effect 참조 (첫 호출 시 초기화, 이후 재사용)
-const cachedFetchRef = Atom.make<{
-  readonly fetch: Effect.Effect<ReadonlyArray<Stock>, any>
-  readonly invalidate: Effect.Effect<void>
-} | null>(null)
+// 주식 목록 조회 (AtomHttpApi query — 구독 시 자동 fetch, TTL 30초)
+export const fetchStocksAtom = StockApiClient.query("stocks", "getAll", {
+  timeToLive: "30 seconds",
+  reactivityKeys: stocksKey,
+})
 
-// 주식 조회 (Effect.cachedInvalidateWithTTL 30초)
-// "cached" → TTL 내 캐시 반환 / "fresh" → 캐시 무효화 후 재조회
-export const fetchStocksAtom = runtimeAtom.fn<"cached" | "fresh">()(
-  (mode, get) => {
-    const cache = get(cachedFetchRef)
-
-    if (cache) {
-      if (mode === "fresh") {
-        return Effect.gen(function* () {
-          yield* cache.invalidate
-          return yield* cache.fetch
-        })
-      }
-      return cache.fetch
-    }
-
-    // 첫 호출: 캐시 초기화
-    return Effect.gen(function* () {
-      const service = yield* StockService
-      const [cachedFetch, invalidate] = yield* Effect.cachedInvalidateWithTTL(
-        service.getAllStocks(),
-        "30 seconds",
-      )
-      get.set(cachedFetchRef, { fetch: cachedFetch, invalidate })
-      return yield* cachedFetch
-    })
-  },
-)
+// 가격 변경 mutation (실행 후 stocksKey를 통해 query 자동 리프레시)
+export const updatePriceAtom = StockApiClient.mutation("stocks", "updatePrice")
 
 // 하위 호환: 순수 배열 (Result에서 추출)
 export const stockListAtom = Atom.make((get) =>
