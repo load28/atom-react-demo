@@ -31,3 +31,8 @@ export class OrderNotFound extends Data.TaggedError("OrderNotFound")<{
 export class ApiError extends Data.TaggedError("ApiError")<{
   readonly message: string
 }> {}
+
+export class WebSocketError extends Data.TaggedError("WebSocketError")<{
+  readonly code: number
+  readonly reason: string
+}> {}

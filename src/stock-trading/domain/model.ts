@@ -54,3 +54,12 @@ export const Holding = Schema.Struct({
   averagePrice: Schema.Positive,
 })
 export type Holding = typeof Holding.Type
+
+// ── StockTick (WebSocket 실시간 시세) ──
+export const StockTick = Schema.Struct({
+  symbol: StockSymbol,
+  price: Schema.Positive,
+  previousClose: Schema.Positive,
+  timestamp: Schema.Number,
+})
+export type StockTick = typeof StockTick.Type
