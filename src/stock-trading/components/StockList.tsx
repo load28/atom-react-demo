@@ -1,9 +1,11 @@
 "use client"
 
-import { useAtomValue, useAtomRefresh } from "@effect-atom/atom-react/Hooks"
+import { useEffect, useRef } from "react"
+import { useAtomValue, useAtomSet, useAtomRefresh } from "@effect-atom/atom-react/Hooks"
 import * as Result from "@effect-atom/atom/Result"
 import { stocksWithChangeAtom, fetchStocksAtom } from "@/src/stock-trading/atoms/stock"
-import { wsStatusAtom, priceFlashAtom } from "@/src/stock-trading/atoms/stock-feed"
+import { wsStatusAtom, priceFlashAtom, flashTriggerAtom, FLASH_DURATION_MS } from "@/src/stock-trading/atoms/stock-feed"
+import type { StockSymbol } from "@/src/stock-trading/domain/model"
 
 const STATUS_LABEL: Record<string, string> = {
   connected: "실시간",
@@ -25,6 +27,39 @@ export const StockList = () => {
   const refresh = useAtomRefresh(fetchStocksAtom)
   const wsStatus = useAtomValue(wsStatusAtom)
   const flash = useAtomValue(priceFlashAtom)
+  const setFlash = useAtomSet(priceFlashAtom)
+  const flashTrigger = useAtomValue(flashTriggerAtom)
+
+  // ── 플래시 효과 타이머 관리 (UI 동작을 컴포넌트에서 직접 제어) ──
+  const flashTimers = useRef(new Map<StockSymbol, ReturnType<typeof setTimeout>>())
+  const activeFlashes = useRef(new Map<StockSymbol, "up" | "down">())
+
+  useEffect(() => {
+    if (!flashTrigger) return
+    const { symbol, direction } = flashTrigger
+
+    const prevTimer = flashTimers.current.get(symbol)
+    if (prevTimer) clearTimeout(prevTimer)
+
+    activeFlashes.current.set(symbol, direction)
+    setFlash(new Map(activeFlashes.current))
+
+    flashTimers.current.set(
+      symbol,
+      setTimeout(() => {
+        activeFlashes.current.delete(symbol)
+        flashTimers.current.delete(symbol)
+        setFlash(new Map(activeFlashes.current))
+      }, FLASH_DURATION_MS),
+    )
+  }, [flashTrigger, setFlash])
+
+  useEffect(() => {
+    const timers = flashTimers.current
+    return () => {
+      timers.forEach(clearTimeout)
+    }
+  }, [])
 
   const isWaiting = Result.isWaiting(result)
 

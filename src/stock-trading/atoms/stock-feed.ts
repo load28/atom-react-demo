@@ -4,13 +4,23 @@ import { createStockFeed, type ConnectionStatus } from "@/src/stock-trading/serv
 import { STOCK_WS_URL } from "@/src/stock-trading/mocks/ws-handlers"
 
 const ALL_SYMBOLS = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"] as StockSymbol[]
-const FLASH_DURATION_MS = 600
+export const FLASH_DURATION_MS = 600
 
 // ── WebSocket 연결 상태 ──
 export const wsStatusAtom = Atom.make<ConnectionStatus>("disconnected")
 
-// ── 가격 플래시 효과 ──
+// ── 가격 플래시 효과 (컴포넌트에서 타이머 관리) ──
 export const priceFlashAtom = Atom.make<ReadonlyMap<StockSymbol, "up" | "down">>(new Map())
+
+// ── 가격 방향 변경 이벤트 ──
+// livePricesAtom이 방향 변경을 감지하면 이 아톰에 이벤트를 발행한다.
+// seq를 통해 동일 종목의 연속된 같은 방향 변경도 구분한다.
+let _flashSeq = 0
+export const flashTriggerAtom = Atom.make<{
+  readonly symbol: StockSymbol
+  readonly direction: "up" | "down"
+  readonly seq: number
+} | null>(null)
 
 // ── 실시간 시세 (자체 관리 구독 아톰) ──
 // stockListAtom이 이 아톰을 구독하면 WebSocket이 자동 연결되고,
@@ -18,25 +28,6 @@ export const priceFlashAtom = Atom.make<ReadonlyMap<StockSymbol, "up" | "down">>
 // HTTP 쿼리(AtomHttpApi.query)가 구독 기반 자동 페칭인 것과 동일한 패턴.
 export const livePricesAtom = Atom.make((get) => {
   const prices = new Map<StockSymbol, StockTick>()
-  const flashes = new Map<StockSymbol, "up" | "down">()
-  const flashTimers = new Map<StockSymbol, ReturnType<typeof setTimeout>>()
-
-  const applyFlash = (symbol: StockSymbol, direction: "up" | "down") => {
-    const prev = flashTimers.get(symbol)
-    if (prev) clearTimeout(prev)
-
-    flashes.set(symbol, direction)
-    get.set(priceFlashAtom, new Map(flashes))
-
-    flashTimers.set(
-      symbol,
-      setTimeout(() => {
-        flashes.delete(symbol)
-        flashTimers.delete(symbol)
-        get.set(priceFlashAtom, new Map(flashes))
-      }, FLASH_DURATION_MS),
-    )
-  }
 
   const feed = createStockFeed(
     { url: STOCK_WS_URL, symbols: ALL_SYMBOLS, reconnectMaxRetries: 5, heartbeatIntervalMs: 30_000 },
@@ -48,7 +39,9 @@ export const livePricesAtom = Atom.make((get) => {
         prices.set(tick.symbol, tick)
         get.setSelf(new Map(prices))
 
-        if (direction) applyFlash(tick.symbol, direction)
+        if (direction) {
+          get.set(flashTriggerAtom, { symbol: tick.symbol, direction, seq: ++_flashSeq })
+        }
       },
       onSnapshot: (ticks) => {
         for (const tick of ticks) prices.set(tick.symbol, tick)
@@ -62,8 +55,6 @@ export const livePricesAtom = Atom.make((get) => {
 
   get.addFinalizer(() => {
     feed.disconnect()
-    flashTimers.forEach(clearTimeout)
-    flashTimers.clear()
   })
 
   return new Map<StockSymbol, StockTick>()
