@@ -1,19 +1,13 @@
 "use client"
 
-import { useEffect } from "react"
-import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
+import { useAtomValue } from "@effect-atom/atom-react/Hooks"
 import { currentUserAtom } from "@/src/stock-trading/atoms/auth"
-import { holdingsAtom, fetchPortfolioAtom, portfolioPnLAtom } from "@/src/stock-trading/atoms/portfolio"
+import { holdingsAtom, portfolioPnLAtom } from "@/src/stock-trading/atoms/portfolio"
 
 export const PortfolioView = () => {
   const currentUser = useAtomValue(currentUserAtom)
   const holdings = useAtomValue(holdingsAtom)
   const pnl = useAtomValue(portfolioPnLAtom)
-  const fetchPortfolio = useAtomSet(fetchPortfolioAtom)
-
-  useEffect(() => {
-    if (currentUser) fetchPortfolio()
-  }, [currentUser])
 
   if (!currentUser) return null
 
