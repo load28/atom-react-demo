@@ -27,3 +27,7 @@ export class InsufficientShares extends Data.TaggedError("InsufficientShares")<{
 export class OrderNotFound extends Data.TaggedError("OrderNotFound")<{
   readonly id: OrderId
 }> {}
+
+export class ApiError extends Data.TaggedError("ApiError")<{
+  readonly message: string
+}> {}

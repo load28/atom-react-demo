@@ -1,26 +1,22 @@
 "use client"
 
-import { useState } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
-import { Exit } from "effect"
-import { currentUserAtom, loginAtom, logoutAtom } from "@/src/stock-trading/atoms/auth"
+import {
+  currentUserAtom,
+  loginAtom,
+  loginErrorAtom,
+  logoutAtom,
+  usernameInputAtom,
+  passwordInputAtom,
+} from "@/src/stock-trading/atoms/auth"
 
 export const LoginForm = () => {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-
   const currentUser = useAtomValue(currentUserAtom)
-  const login = useAtomSet(loginAtom, { mode: "promiseExit" })
+  const login = useAtomSet(loginAtom)
   const logout = useAtomSet(logoutAtom)
-
-  const handleLogin = async () => {
-    setError("")
-    const exit = await login({ username, password })
-    if (Exit.isFailure(exit)) {
-      setError("로그인 실패: 아이디 또는 비밀번호를 확인하세요")
-    }
-  }
+  const error = useAtomValue(loginErrorAtom)
+  const setUsername = useAtomSet(usernameInputAtom)
+  const setPassword = useAtomSet(passwordInputAtom)
 
   if (currentUser) {
     return (
@@ -38,34 +34,31 @@ export const LoginForm = () => {
   }
 
   return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(e) => { e.preventDefault(); handleLogin() }}
-    >
+    <div className="flex items-center gap-2">
       <input
         type="text"
         placeholder="아이디"
-        value={username}
         onChange={(e) => setUsername(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="username-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <input
         type="password"
         placeholder="비밀번호"
-        value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="password-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <button
-        type="submit"
+        onClick={() => login()}
         data-testid="login-button"
         className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
       >
         로그인
       </button>
       {error && <p className="text-xs text-red-500" data-testid="login-error">{error}</p>}
-    </form>
+    </div>
   )
 }
