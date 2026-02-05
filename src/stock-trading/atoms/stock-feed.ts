@@ -4,28 +4,14 @@ import { createStockFeed, type ConnectionStatus } from "@/src/stock-trading/serv
 import { STOCK_WS_URL } from "@/src/stock-trading/mocks/ws-handlers"
 
 const ALL_SYMBOLS = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"] as StockSymbol[]
-export const FLASH_DURATION_MS = 600
+const FLASH_DURATION_MS = 600
 
 // ── WebSocket 연결 상태 ──
 export const wsStatusAtom = Atom.make<ConnectionStatus>("disconnected")
 
-// ── 가격 플래시 효과 (컴포넌트에서 타이머 관리) ──
-export const priceFlashAtom = Atom.make<ReadonlyMap<StockSymbol, "up" | "down">>(new Map())
-
-// ── 가격 방향 변경 이벤트 ──
-// livePricesAtom이 방향 변경을 감지하면 이 아톰에 이벤트를 발행한다.
-// seq를 통해 동일 종목의 연속된 같은 방향 변경도 구분한다.
-let _flashSeq = 0
-export const flashTriggerAtom = Atom.make<{
-  readonly symbol: StockSymbol
-  readonly direction: "up" | "down"
-  readonly seq: number
-} | null>(null)
-
-// ── 실시간 시세 (자체 관리 구독 아톰) ──
+// ── 실시간 시세 (단일 책임: 가격만 관리) ──
 // stockListAtom이 이 아톰을 구독하면 WebSocket이 자동 연결되고,
 // 구독이 해제되면 연결이 자동 종료된다.
-// HTTP 쿼리(AtomHttpApi.query)가 구독 기반 자동 페칭인 것과 동일한 패턴.
 export const livePricesAtom = Atom.make((get) => {
   const prices = new Map<StockSymbol, StockTick>()
 
@@ -33,15 +19,8 @@ export const livePricesAtom = Atom.make((get) => {
     { url: STOCK_WS_URL, symbols: ALL_SYMBOLS, reconnectMaxRetries: 5, heartbeatIntervalMs: 30_000 },
     {
       onTick: (tick) => {
-        const prev = prices.get(tick.symbol)
-        const direction = prev && tick.price > prev.price ? "up" : prev && tick.price < prev.price ? "down" : null
-
         prices.set(tick.symbol, tick)
         get.setSelf(new Map(prices))
-
-        if (direction) {
-          get.set(flashTriggerAtom, { symbol: tick.symbol, direction, seq: ++_flashSeq })
-        }
       },
       onSnapshot: (ticks) => {
         for (const tick of ticks) prices.set(tick.symbol, tick)
@@ -58,4 +37,46 @@ export const livePricesAtom = Atom.make((get) => {
   })
 
   return new Map<StockSymbol, StockTick>()
+})
+
+// ── 가격 플래시 효과 (파생 아톰: livePricesAtom → 방향 감지 → 타이머) ──
+// livePricesAtom을 구독하여 이전 가격과 비교해 방향을 감지하고,
+// 감지된 방향에 따라 플래시 상태를 자체 관리한다.
+export const priceFlashAtom = Atom.make((get) => {
+  const prevPrices = new Map<StockSymbol, number>()
+  const flashes = new Map<StockSymbol, "up" | "down">()
+  const flashTimers = new Map<StockSymbol, ReturnType<typeof setTimeout>>()
+
+  get.subscribe(livePricesAtom, (prices) => {
+    for (const [symbol, tick] of prices) {
+      const prev = prevPrices.get(symbol)
+      prevPrices.set(symbol, tick.price)
+
+      if (prev === undefined) continue
+      const direction = tick.price > prev ? "up" : tick.price < prev ? "down" : null
+      if (!direction) continue
+
+      const prevTimer = flashTimers.get(symbol)
+      if (prevTimer) clearTimeout(prevTimer)
+
+      flashes.set(symbol, direction)
+      get.setSelf(new Map(flashes))
+
+      flashTimers.set(
+        symbol,
+        setTimeout(() => {
+          flashes.delete(symbol)
+          flashTimers.delete(symbol)
+          get.setSelf(new Map(flashes))
+        }, FLASH_DURATION_MS),
+      )
+    }
+  })
+
+  get.addFinalizer(() => {
+    flashTimers.forEach(clearTimeout)
+    flashTimers.clear()
+  })
+
+  return new Map<StockSymbol, "up" | "down">()
 })
