@@ -2,20 +2,16 @@ import { Effect } from "effect"
 import type { UserId, StockSymbol, Holding } from "@/src/stock-trading/domain/model"
 import { StockNotFound } from "@/src/stock-trading/domain/errors"
 import { calculateHoldingPnL, calculatePortfolioValue } from "@/src/stock-trading/domain/calculator"
-import { StockService } from "./stock-service"
 import { TradingService } from "./trading-service"
 import { AuthService } from "./auth-service"
 
 export class PortfolioService extends Effect.Service<PortfolioService>()("PortfolioService", {
   effect: Effect.gen(function* () {
-    const getPortfolioSummary = (userId: UserId) =>
+    const getPortfolioSummary = (userId: UserId, priceMap: Map<StockSymbol, number>) =>
       Effect.gen(function* () {
         const trading = yield* TradingService
-        const stockService = yield* StockService
         const authService = yield* AuthService
         const holdingsList = yield* trading.getHoldings(userId)
-        const allStocks = yield* stockService.getAllStocks()
-        const priceMap = new Map(allStocks.map((s) => [s.symbol, s.price])) as Map<StockSymbol, number>
 
         const totalValue = calculatePortfolioValue(holdingsList, priceMap)
         const totalCost = holdingsList.reduce((sum, h) => sum + h.averagePrice * h.quantity, 0)
@@ -32,10 +28,9 @@ export class PortfolioService extends Effect.Service<PortfolioService>()("Portfo
         }
       })
 
-    const getHoldingDetail = (userId: UserId, symbol: StockSymbol) =>
+    const getHoldingDetail = (userId: UserId, symbol: StockSymbol, currentPrice: number) =>
       Effect.gen(function* () {
         const trading = yield* TradingService
-        const stockService = yield* StockService
         const holdingsList = yield* trading.getHoldings(userId)
         const found = holdingsList.find((h) => h.symbol === symbol)
 
@@ -43,14 +38,13 @@ export class PortfolioService extends Effect.Service<PortfolioService>()("Portfo
           return yield* Effect.fail(new StockNotFound({ symbol }))
         }
 
-        const stock = yield* stockService.getStock(symbol)
-        const pnl = calculateHoldingPnL(found, stock.price)
+        const pnl = calculateHoldingPnL(found, currentPrice)
 
         return {
           symbol: found.symbol,
           quantity: found.quantity,
           averagePrice: found.averagePrice,
-          currentPrice: stock.price,
+          currentPrice,
           ...pnl,
         }
       })

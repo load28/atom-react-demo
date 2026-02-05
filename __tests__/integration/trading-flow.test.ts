@@ -1,23 +1,34 @@
 import { describe, it, expect } from "bun:test"
 import { Effect, Exit, Layer } from "effect"
 import { AuthService } from "@/src/stock-trading/services/auth-service"
-import { StockService } from "@/src/stock-trading/services/stock-service"
 import { TradingService } from "@/src/stock-trading/services/trading-service"
 import { PortfolioService } from "@/src/stock-trading/services/portfolio-service"
 import type { StockSymbol } from "@/src/stock-trading/domain/model"
 
-// 가이드 섹션 22: 여러 서비스를 조합한 통합 테스트
+// 주식 가격은 AtomHttpApi로 관리되므로, 통합 테스트에서는 가격을 직접 전달
+const STOCK_PRICES: Map<StockSymbol, number> = new Map([
+  ["AAPL" as StockSymbol, 178.5],
+  ["GOOGL" as StockSymbol, 141.8],
+  ["MSFT" as StockSymbol, 378.9],
+  ["TSLA" as StockSymbol, 248.5],
+  ["AMZN" as StockSymbol, 185.6],
+])
+
+const AAPL_PRICE = STOCK_PRICES.get("AAPL" as StockSymbol)!
+const GOOGL_PRICE = STOCK_PRICES.get("GOOGL" as StockSymbol)!
+const MSFT_PRICE = STOCK_PRICES.get("MSFT" as StockSymbol)!
+const TSLA_PRICE = STOCK_PRICES.get("TSLA" as StockSymbol)!
+
 // Layer.mergeAll로 전체 서비스 조립 → 하나의 Effect 파이프라인으로 검증
 
 describe("Trading Flow Integration", () => {
   const AppLayer = Layer.mergeAll(
     AuthService.Default,
-    StockService.Default,
     TradingService.Default,
     PortfolioService.Default,
   )
 
-  type AppServices = AuthService | StockService | TradingService | PortfolioService
+  type AppServices = AuthService | TradingService | PortfolioService
 
   const run = <A, E>(effect: Effect.Effect<A, E, AppServices>) =>
     Effect.runPromise(effect.pipe(Effect.provide(AppLayer)))
@@ -31,19 +42,15 @@ describe("Trading Flow Integration", () => {
           const user = yield* auth.login("trader1", "password123")
           const initialBalance = user.balance
 
-          // 2. 주식 시세 확인
-          const stockService = yield* StockService
-          const aapl = yield* stockService.getStock("AAPL" as StockSymbol)
-
-          // 3. 매수
+          // 2. 매수 (가격은 AtomHttpApi에서 관리 → 테스트에서는 직접 전달)
           const trading = yield* TradingService
-          const order = yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10)
+          const order = yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10, AAPL_PRICE)
 
-          // 4. 포트폴리오 확인
+          // 3. 포트폴리오 확인
           const portfolio = yield* PortfolioService
-          const summary = yield* portfolio.getPortfolioSummary(user.id)
+          const summary = yield* portfolio.getPortfolioSummary(user.id, STOCK_PRICES)
 
-          return { initialBalance, order, summary, stockPrice: aapl.price }
+          return { initialBalance, order, summary, stockPrice: AAPL_PRICE }
         })
       )
 
@@ -72,8 +79,8 @@ describe("Trading Flow Integration", () => {
           const initialBalance = user.balance
 
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
-          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
+          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
 
           const finalBalance = yield* auth.getBalance(user.id)
           const holdings = yield* trading.getHoldings(user.id)
@@ -97,12 +104,12 @@ describe("Trading Flow Integration", () => {
           const user = yield* auth.login("trader1", "password123")
 
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
-          yield* trading.placeBuyOrder(user.id, "GOOGL" as StockSymbol, 3)
-          yield* trading.placeBuyOrder(user.id, "MSFT" as StockSymbol, 2)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
+          yield* trading.placeBuyOrder(user.id, "GOOGL" as StockSymbol, 3, GOOGL_PRICE)
+          yield* trading.placeBuyOrder(user.id, "MSFT" as StockSymbol, 2, MSFT_PRICE)
 
           const portfolio = yield* PortfolioService
-          const summary = yield* portfolio.getPortfolioSummary(user.id)
+          const summary = yield* portfolio.getPortfolioSummary(user.id, STOCK_PRICES)
           const orders = yield* trading.getOrders(user.id)
 
           return { summary, orderCount: orders.length }
@@ -123,7 +130,7 @@ describe("Trading Flow Integration", () => {
           const user = yield* auth.login("trader1", "password123")
           const trading = yield* TradingService
           // 잔고를 초과하는 대량 매수
-          return yield* trading.placeBuyOrder(user.id, "MSFT" as StockSymbol, 999999)
+          return yield* trading.placeBuyOrder(user.id, "MSFT" as StockSymbol, 999999, MSFT_PRICE)
         }).pipe(Effect.provide(AppLayer))
       )
 
@@ -138,7 +145,7 @@ describe("Trading Flow Integration", () => {
           const auth = yield* AuthService
           const user = yield* auth.login("trader1", "password123")
           const trading = yield* TradingService
-          return yield* trading.placeSellOrder(user.id, "TSLA" as StockSymbol, 10)
+          return yield* trading.placeSellOrder(user.id, "TSLA" as StockSymbol, 10, TSLA_PRICE)
         }).pipe(Effect.provide(AppLayer))
       )
 
@@ -154,8 +161,8 @@ describe("Trading Flow Integration", () => {
           const user = yield* auth.login("trader1", "password123")
           const trading = yield* TradingService
 
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10)
-          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 3)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10, AAPL_PRICE)
+          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 3, AAPL_PRICE)
 
           const holdings = yield* trading.getHoldings(user.id)
           const orders = yield* trading.getOrders(user.id)

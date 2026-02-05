@@ -1,22 +1,22 @@
 import { describe, it, expect } from "bun:test"
 import { Effect, Exit, Layer } from "effect"
 import { TradingService } from "@/src/stock-trading/services/trading-service"
-import { StockService } from "@/src/stock-trading/services/stock-service"
 import { AuthService } from "@/src/stock-trading/services/auth-service"
 import type { UserId, StockSymbol, OrderId } from "@/src/stock-trading/domain/model"
 
-// 가이드 섹션 22: 여러 서비스를 조합한 로직 테스트 → Layer.mergeAll
+// 주식 가격은 AtomHttpApi로 관리되므로, 서비스 테스트에서는 가격을 직접 전달
+const AAPL_PRICE = 178.5
+
 describe("TradingService", () => {
   const TestLayer = Layer.mergeAll(
     AuthService.Default,
-    StockService.Default,
     TradingService.Default,
   )
 
-  const run = <A, E>(effect: Effect.Effect<A, E, TradingService | AuthService | StockService>) =>
+  const run = <A, E>(effect: Effect.Effect<A, E, TradingService | AuthService>) =>
     Effect.runPromise(effect.pipe(Effect.provide(TestLayer)))
 
-  const runExit = <A, E>(effect: Effect.Effect<A, E, TradingService | AuthService | StockService>) =>
+  const runExit = <A, E>(effect: Effect.Effect<A, E, TradingService | AuthService>) =>
     Effect.runPromiseExit(effect.pipe(Effect.provide(TestLayer)))
 
   // 로그인 후 유저 가져오기 헬퍼
@@ -31,14 +31,14 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          return yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
+          return yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
         })
       )
       expect(order.type).toBe("buy")
       expect(order.symbol).toBe("AAPL")
       expect(order.quantity).toBe(5)
       expect(order.status).toBe("filled")
-      expect(order.price).toBeGreaterThan(0)
+      expect(order.price).toBe(AAPL_PRICE)
     })
 
     it("should fail with InsufficientBalance when balance too low", async () => {
@@ -47,18 +47,7 @@ describe("TradingService", () => {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
           // 매우 큰 수량으로 잔고 부족 유발
-          return yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 999999)
-        })
-      )
-      expect(Exit.isFailure(exit)).toBe(true)
-    })
-
-    it("should fail with StockNotFound for invalid symbol", async () => {
-      const exit = await runExit(
-        Effect.gen(function* () {
-          const user = yield* loginAndGetUser
-          const trading = yield* TradingService
-          return yield* trading.placeBuyOrder(user.id, "INVALID" as StockSymbol, 1)
+          return yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 999999, AAPL_PRICE)
         })
       )
       expect(Exit.isFailure(exit)).toBe(true)
@@ -70,7 +59,7 @@ describe("TradingService", () => {
           const auth = yield* AuthService
           const user = yield* auth.login("trader1", "password123")
           const trading = yield* TradingService
-          const order = yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 1)
+          const order = yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 1, AAPL_PRICE)
           const updatedUser = yield* auth.getCurrentUser()
           return { order, balanceBefore: user.balance, balanceAfter: updatedUser!.balance }
         })
@@ -86,9 +75,9 @@ describe("TradingService", () => {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
           // 먼저 매수
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10, AAPL_PRICE)
           // 그 다음 매도
-          return yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5)
+          return yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
         })
       )
       expect(order.type).toBe("sell")
@@ -101,7 +90,7 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          return yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5)
+          return yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
         })
       )
       expect(Exit.isFailure(exit)).toBe(true)
@@ -114,8 +103,8 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 3)
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 2)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 3, AAPL_PRICE)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 2, AAPL_PRICE)
           return yield* trading.getOrders(user.id)
         })
       )
@@ -140,7 +129,7 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10, AAPL_PRICE)
           return yield* trading.getHoldings(user.id)
         })
       )
@@ -154,8 +143,8 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10)
-          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 3)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 10, AAPL_PRICE)
+          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 3, AAPL_PRICE)
           return yield* trading.getHoldings(user.id)
         })
       )
@@ -168,8 +157,8 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
-          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
+          yield* trading.placeSellOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
           return yield* trading.getHoldings(user.id)
         })
       )
@@ -181,15 +170,14 @@ describe("TradingService", () => {
         Effect.gen(function* () {
           const user = yield* loginAndGetUser
           const trading = yield* TradingService
-          const stock = yield* (yield* StockService).getStock("AAPL" as StockSymbol)
           // 같은 가격으로 두 번 매수
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
-          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
+          yield* trading.placeBuyOrder(user.id, "AAPL" as StockSymbol, 5, AAPL_PRICE)
           return yield* trading.getHoldings(user.id)
         })
       )
       expect(holdings[0].quantity).toBe(10)
-      expect(holdings[0].averagePrice).toBeGreaterThan(0)
+      expect(holdings[0].averagePrice).toBe(AAPL_PRICE)
     })
   })
 })
