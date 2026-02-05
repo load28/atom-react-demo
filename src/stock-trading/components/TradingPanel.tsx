@@ -33,70 +33,96 @@ export const TradingPanel = () => {
   }
 
   return (
-    <div className="trading-panel">
-      <h2>주문</h2>
-      <div className="trade-form">
-        <select
-          value={selectedSymbol}
-          onChange={(e) => setSelectedSymbol(e.target.value)}
-          data-testid="symbol-select"
-        >
-          <option value="">종목 선택</option>
-          {stocks.map((s) => (
-            <option key={s.symbol} value={s.symbol}>
-              {s.symbol} - {s.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={1}
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          data-testid="quantity-input"
-        />
-        <div className="trade-buttons">
-          <button
-            onClick={() => handleTrade("buy")}
-            disabled={!selectedSymbol}
-            data-testid="buy-button"
-          >
-            매수
-          </button>
-          <button
-            onClick={() => handleTrade("sell")}
-            disabled={!selectedSymbol}
-            data-testid="sell-button"
-          >
-            매도
-          </button>
-        </div>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="px-5 py-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-900">주문</h2>
       </div>
-      {message && <p className="trade-message" data-testid="trade-message">{message}</p>}
+      <div className="p-5 space-y-4">
+        <div className="space-y-3">
+          <select
+            value={selectedSymbol}
+            onChange={(e) => setSelectedSymbol(e.target.value)}
+            data-testid="symbol-select"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">종목 선택</option>
+            {stocks.map((s) => (
+              <option key={s.symbol} value={s.symbol}>
+                {s.symbol} - {s.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            data-testid="quantity-input"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => handleTrade("buy")}
+              disabled={!selectedSymbol}
+              data-testid="buy-button"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              매수
+            </button>
+            <button
+              onClick={() => handleTrade("sell")}
+              disabled={!selectedSymbol}
+              data-testid="sell-button"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              매도
+            </button>
+          </div>
+        </div>
+        {message && (
+          <p className="text-sm text-center py-2 px-3 bg-gray-50 rounded-md text-gray-700" data-testid="trade-message">
+            {message}
+          </p>
+        )}
+      </div>
 
-      <h3>주문 내역</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>종목</th>
-            <th>유형</th>
-            <th>수량</th>
-            <th>가격</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id} data-testid={`order-row-${order.id}`}>
-              <td>{order.symbol}</td>
-              <td>{order.type === "buy" ? "매수" : "매도"}</td>
-              <td>{order.quantity}</td>
-              <td>₩{order.price.toLocaleString()}</td>
-              <td>{order.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {orders.length > 0 && (
+        <>
+          <div className="px-5 py-3 border-t border-gray-200 bg-gray-50">
+            <h3 className="text-sm font-semibold text-gray-700">주문 내역</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
+                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">가격</th>
+                  <th className="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {orders.map((order) => (
+                  <tr key={order.id} data-testid={`order-row-${order.id}`}>
+                    <td className="px-5 py-2 text-sm font-medium text-gray-900">{order.symbol}</td>
+                    <td className={`px-5 py-2 text-sm font-medium ${order.type === "buy" ? "text-red-500" : "text-blue-500"}`}>
+                      {order.type === "buy" ? "매수" : "매도"}
+                    </td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">{order.quantity}</td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{order.price.toLocaleString()}</td>
+                    <td className="px-5 py-2 text-sm text-center">
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   )
 }

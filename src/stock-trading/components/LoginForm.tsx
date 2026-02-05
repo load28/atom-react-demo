@@ -6,7 +6,6 @@ import { Exit } from "effect"
 import { currentUserAtom, loginAtom, logoutAtom } from "@/src/stock-trading/atoms/auth"
 
 export const LoginForm = () => {
-  // 가이드 섹션 20: Component는 UI만 담당, useState는 로컬 폼 상태만
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -25,22 +24,31 @@ export const LoginForm = () => {
 
   if (currentUser) {
     return (
-      <div className="login-info">
-        <span>{currentUser.username}</span>
-        <span>₩{currentUser.balance.toLocaleString()}</span>
-        <button onClick={() => logout()}>로그아웃</button>
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-gray-700">{currentUser.username}</span>
+        <span className="text-sm font-semibold text-blue-600">₩{currentUser.balance.toLocaleString()}</span>
+        <button
+          onClick={() => logout()}
+          className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+        >
+          로그아웃
+        </button>
       </div>
     )
   }
 
   return (
-    <form className="login-form" onSubmit={(e) => { e.preventDefault(); handleLogin() }}>
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(e) => { e.preventDefault(); handleLogin() }}
+    >
       <input
         type="text"
         placeholder="아이디"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         data-testid="username-input"
+        className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <input
         type="password"
@@ -48,9 +56,16 @@ export const LoginForm = () => {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         data-testid="password-input"
+        className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
-      <button type="submit" data-testid="login-button">로그인</button>
-      {error && <p className="error" data-testid="login-error">{error}</p>}
+      <button
+        type="submit"
+        data-testid="login-button"
+        className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+      >
+        로그인
+      </button>
+      {error && <p className="text-xs text-red-500" data-testid="login-error">{error}</p>}
     </form>
   )
 }
