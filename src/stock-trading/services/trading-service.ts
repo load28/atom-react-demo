@@ -1,7 +1,6 @@
 import { Effect, Ref, HashMap } from "effect"
 import type { Order, Holding, UserId, StockSymbol, OrderId } from "@/src/stock-trading/domain/model"
 import { InsufficientBalance, InsufficientShares } from "@/src/stock-trading/domain/errors"
-import { StockService } from "./stock-service"
 import { AuthService } from "./auth-service"
 
 let orderCounter = 0
@@ -14,12 +13,10 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
 
     const holdingKey = (userId: UserId, symbol: StockSymbol) => `${userId}:${symbol}`
 
-    const placeBuyOrder = (userId: UserId, symbol: StockSymbol, quantity: number) =>
+    const placeBuyOrder = (userId: UserId, symbol: StockSymbol, quantity: number, currentPrice: number) =>
       Effect.gen(function* () {
-        const stockService = yield* StockService
         const authService = yield* AuthService
-        const stock = yield* stockService.getStock(symbol)
-        const totalCost = stock.price * quantity
+        const totalCost = currentPrice * quantity
         const balance = yield* authService.getBalance(userId)
 
         if (balance < totalCost) {
@@ -34,7 +31,7 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
           symbol,
           type: "buy",
           quantity,
-          price: stock.price,
+          price: currentPrice,
           status: "filled",
           createdAt: new Date(),
           filledAt: new Date(),
@@ -49,7 +46,7 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
         if (existing._tag === "Some") {
           const prev = existing.value
           const newQuantity = prev.quantity + quantity
-          const newAvgPrice = (prev.averagePrice * prev.quantity + stock.price * quantity) / newQuantity
+          const newAvgPrice = (prev.averagePrice * prev.quantity + currentPrice * quantity) / newQuantity
           yield* Ref.update(holdings, HashMap.set(key, {
             symbol,
             quantity: newQuantity,
@@ -59,18 +56,16 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
           yield* Ref.update(holdings, HashMap.set(key, {
             symbol,
             quantity,
-            averagePrice: stock.price,
+            averagePrice: currentPrice,
           } as Holding))
         }
 
         return order
       })
 
-    const placeSellOrder = (userId: UserId, symbol: StockSymbol, quantity: number) =>
+    const placeSellOrder = (userId: UserId, symbol: StockSymbol, quantity: number, currentPrice: number) =>
       Effect.gen(function* () {
-        const stockService = yield* StockService
         const authService = yield* AuthService
-        const stock = yield* stockService.getStock(symbol)
         const key = holdingKey(userId, symbol)
         const currentHoldings = yield* Ref.get(holdings)
         const existing = HashMap.get(currentHoldings, key)
@@ -83,7 +78,7 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
           }))
         }
 
-        const totalRevenue = stock.price * quantity
+        const totalRevenue = currentPrice * quantity
         const balance = yield* authService.getBalance(userId)
         yield* authService.updateBalance(userId, balance + totalRevenue)
 
@@ -93,7 +88,7 @@ export class TradingService extends Effect.Service<TradingService>()("TradingSer
           symbol,
           type: "sell",
           quantity,
-          price: stock.price,
+          price: currentPrice,
           status: "filled",
           createdAt: new Date(),
           filledAt: new Date(),
