@@ -1,22 +1,22 @@
 "use client"
 
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
-import { currentUserAtom, loginAtom, loginErrorAtom, logoutAtom } from "@/src/stock-trading/atoms/auth"
+import {
+  currentUserAtom,
+  loginAtom,
+  loginErrorAtom,
+  logoutAtom,
+  usernameInputAtom,
+  passwordInputAtom,
+} from "@/src/stock-trading/atoms/auth"
 
 export const LoginForm = () => {
   const currentUser = useAtomValue(currentUserAtom)
   const login = useAtomSet(loginAtom)
   const logout = useAtomSet(logoutAtom)
   const error = useAtomValue(loginErrorAtom)
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    login({
-      username: formData.get("username") as string,
-      password: formData.get("password") as string,
-    })
-  }
+  const setUsername = useAtomSet(usernameInputAtom)
+  const setPassword = useAtomSet(passwordInputAtom)
 
   if (currentUser) {
     return (
@@ -34,32 +34,31 @@ export const LoginForm = () => {
   }
 
   return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={handleSubmit}
-    >
+    <div className="flex items-center gap-2">
       <input
         type="text"
-        name="username"
         placeholder="아이디"
+        onChange={(e) => setUsername(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="username-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <input
         type="password"
-        name="password"
         placeholder="비밀번호"
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="password-input"
         className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <button
-        type="submit"
+        onClick={() => login()}
         data-testid="login-button"
         className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
       >
         로그인
       </button>
       {error && <p className="text-xs text-red-500" data-testid="login-error">{error}</p>}
-    </form>
+    </div>
   )
 }
