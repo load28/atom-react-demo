@@ -2,27 +2,27 @@
 
 import { useEffect } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
-import { stocksWithChangeAtom, stocksQuery } from "@/src/stock-trading/atoms/stock"
+import * as Result from "@effect-atom/atom/Result"
+import { stocksWithChangeAtom, fetchStocksAtom } from "@/src/stock-trading/atoms/stock"
 
 export const StockList = () => {
+  const result = useAtomValue(fetchStocksAtom)
   const stocks = useAtomValue(stocksWithChangeAtom)
-  const isLoading = useAtomValue(stocksQuery.isLoadingAtom)
-  const error = useAtomValue(stocksQuery.errorAtom)
-  const status = useAtomValue(stocksQuery.statusAtom)
-  const fetchStocks = useAtomSet(stocksQuery.fetchAtom)
-  const refetchStocks = useAtomSet(stocksQuery.refetchAtom)
+  const fetchStocks = useAtomSet(fetchStocksAtom)
 
-  useEffect(() => { fetchStocks() }, [])
+  useEffect(() => { fetchStocks("cached") }, [])
+
+  const isWaiting = Result.isWaiting(result)
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">시세</h2>
         <div className="flex items-center gap-2">
-          {isLoading && <span className="text-xs text-gray-400">갱신 중...</span>}
-          {status === "success" && (
+          {isWaiting && <span className="text-xs text-gray-400">갱신 중...</span>}
+          {Result.isSuccess(result) && !isWaiting && (
             <button
-              onClick={() => refetchStocks()}
+              onClick={() => fetchStocks("fresh")}
               className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
             >
               새로고침
@@ -31,11 +31,11 @@ export const StockList = () => {
         </div>
       </div>
 
-      {status === "error" && stocks.length === 0 && (
+      {Result.isFailure(result) && stocks.length === 0 && !isWaiting && (
         <div className="px-5 py-8 text-center">
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-sm text-red-500">시세 정보를 불러올 수 없습니다</p>
           <button
-            onClick={() => refetchStocks()}
+            onClick={() => fetchStocks("fresh")}
             className="mt-2 text-sm text-blue-600 hover:underline"
           >
             다시 시도
@@ -43,7 +43,7 @@ export const StockList = () => {
         </div>
       )}
 
-      {isLoading && stocks.length === 0 && (
+      {Result.isInitial(result) && (
         <div className="px-5 py-8 text-center">
           <p className="text-sm text-gray-400">시세 정보를 불러오는 중...</p>
         </div>
