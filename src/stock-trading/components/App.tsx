@@ -4,6 +4,7 @@ import { MSWProvider } from "../mocks/MSWProvider"
 import { LoginForm } from "./LoginForm"
 import { StockList } from "./StockList"
 import { TradingPanel } from "./TradingPanel"
+import { PendingOrders } from "./PendingOrders"
 import { PortfolioView } from "./PortfolioView"
 
 export const StockTradingApp = () => (
@@ -16,8 +17,9 @@ export const StockTradingApp = () => (
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2">
+        <section className="lg:col-span-2 space-y-6">
           <StockList />
+          <PendingOrders />
         </section>
         <section className="space-y-6">
           <TradingPanel />

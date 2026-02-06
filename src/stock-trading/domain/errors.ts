@@ -36,3 +36,11 @@ export class WebSocketError extends Data.TaggedError("WebSocketError")<{
   readonly code: number
   readonly reason: string
 }> {}
+
+export class OrderExpired extends Data.TaggedError("OrderExpired")<{
+  readonly id: OrderId
+}> {}
+
+export class OrderAlreadyCancelled extends Data.TaggedError("OrderAlreadyCancelled")<{
+  readonly id: OrderId
+}> {}

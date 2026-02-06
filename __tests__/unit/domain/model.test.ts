@@ -131,6 +131,7 @@ describe("Stock Trading Domain Models", () => {
       userId: "user-1",
       symbol: "AAPL",
       type: "buy" as const,
+      executionType: "market" as const,
       quantity: 10,
       price: 150.0,
       status: "pending" as const,
@@ -150,7 +151,7 @@ describe("Stock Trading Domain Models", () => {
     })
 
     it("should accept all valid statuses", () => {
-      for (const status of ["pending", "filled", "cancelled"] as const) {
+      for (const status of ["pending", "filled", "cancelled", "expired"] as const) {
         const order = Schema.decodeSync(Order)({ ...validOrder, status })
         expect(order.status).toBe(status)
       }
@@ -194,11 +195,12 @@ describe("Stock Trading Domain Models", () => {
   })
 
   describe("OrderStatus", () => {
-    it("should only accept pending, filled, cancelled", () => {
+    it("should accept pending, filled, cancelled, expired", () => {
       expect(Schema.decodeSync(OrderStatus)("pending")).toBe("pending")
       expect(Schema.decodeSync(OrderStatus)("filled")).toBe("filled")
       expect(Schema.decodeSync(OrderStatus)("cancelled")).toBe("cancelled")
-      expect(() => Schema.decodeSync(OrderStatus)("expired")).toThrow()
+      expect(Schema.decodeSync(OrderStatus)("expired")).toBe("expired")
+      expect(() => Schema.decodeSync(OrderStatus)("unknown")).toThrow()
     })
   })
 

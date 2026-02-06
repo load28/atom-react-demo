@@ -31,7 +31,10 @@ export type Stock = typeof Stock.Type
 export const OrderType = Schema.Literal("buy", "sell")
 export type OrderType = typeof OrderType.Type
 
-export const OrderStatus = Schema.Literal("pending", "filled", "cancelled")
+export const OrderExecutionType = Schema.Literal("market", "limit", "stop", "stop_limit")
+export type OrderExecutionType = typeof OrderExecutionType.Type
+
+export const OrderStatus = Schema.Literal("pending", "filled", "cancelled", "expired")
 export type OrderStatus = typeof OrderStatus.Type
 
 export const Order = Schema.Struct({
@@ -39,11 +42,16 @@ export const Order = Schema.Struct({
   userId: UserId,
   symbol: StockSymbol,
   type: OrderType,
+  executionType: OrderExecutionType,
   quantity: Schema.Positive,
   price: Schema.Positive,
+  limitPrice: Schema.optional(Schema.Positive),
+  stopPrice: Schema.optional(Schema.Positive),
   status: OrderStatus,
   createdAt: Schema.DateFromSelf,
   filledAt: Schema.optional(Schema.DateFromSelf),
+  expiresAt: Schema.optional(Schema.DateFromSelf),
+  cancelledAt: Schema.optional(Schema.DateFromSelf),
 })
 export type Order = typeof Order.Type
 
