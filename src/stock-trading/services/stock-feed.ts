@@ -1,12 +1,14 @@
-import type { StockSymbol, StockTick } from "@/src/stock-trading/domain/model"
+import { Schema } from "effect"
+import { StockTick, type StockSymbol } from "@/src/stock-trading/domain/model"
+import type { StockTick as StockTickType } from "@/src/stock-trading/domain/model"
 
 // ── 연결 상태 ──
 export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "reconnecting"
 
 // ── 콜백 인터페이스 ──
 export type StockFeedCallbacks = {
-  readonly onTick: (tick: StockTick) => void
-  readonly onSnapshot: (ticks: ReadonlyArray<StockTick>) => void
+  readonly onTick: (tick: StockTickType) => void
+  readonly onSnapshot: (ticks: ReadonlyArray<StockTickType>) => void
   readonly onStatusChange: (status: ConnectionStatus) => void
 }
 
@@ -21,6 +23,9 @@ export type StockFeedConfig = {
 const DEFAULT_MAX_RETRIES = 5
 const DEFAULT_HEARTBEAT_MS = 30_000
 const MAX_RECONNECT_DELAY_MS = 30_000
+
+const decodeStockTick = Schema.decodeUnknownEither(StockTick)
+const decodeStockTickArray = Schema.decodeUnknownEither(Schema.Array(StockTick))
 
 // ── WebSocket 클라이언트 팩토리 ──
 export const createStockFeed = (config: StockFeedConfig, callbacks: StockFeedCallbacks) => {
@@ -90,12 +95,24 @@ export const createStockFeed = (config: StockFeedConfig, callbacks: StockFeedCal
       }
 
       switch (message.type) {
-        case "tick":
-          callbacks.onTick(message.data as StockTick)
+        case "tick": {
+          const result = decodeStockTick(message.data)
+          if (result._tag === "Right") {
+            callbacks.onTick(result.right)
+          } else {
+            console.warn("[stock-feed] Invalid tick message, skipping:", result.left)
+          }
           break
-        case "snapshot":
-          callbacks.onSnapshot(message.data as ReadonlyArray<StockTick>)
+        }
+        case "snapshot": {
+          const result = decodeStockTickArray(message.data)
+          if (result._tag === "Right") {
+            callbacks.onSnapshot(result.right)
+          } else {
+            console.warn("[stock-feed] Invalid snapshot message, skipping:", result.left)
+          }
           break
+        }
         case "pong":
           // heartbeat 응답 수신
           break

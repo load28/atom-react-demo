@@ -15,7 +15,9 @@ export const LoginForm = () => {
   const login = useAtomSet(loginAtom)
   const logout = useAtomSet(logoutAtom)
   const error = useAtomValue(loginErrorAtom)
+  const username = useAtomValue(usernameInputAtom)
   const setUsername = useAtomSet(usernameInputAtom)
+  const password = useAtomValue(passwordInputAtom)
   const setPassword = useAtomSet(passwordInputAtom)
 
   if (currentUser) {
@@ -38,6 +40,7 @@ export const LoginForm = () => {
       <input
         type="text"
         placeholder="아이디"
+        value={username}
         onChange={(e) => setUsername(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="username-input"
@@ -46,6 +49,7 @@ export const LoginForm = () => {
       <input
         type="password"
         placeholder="비밀번호"
+        value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") login() }}
         data-testid="password-input"
