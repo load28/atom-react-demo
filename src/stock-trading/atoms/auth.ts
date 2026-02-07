@@ -2,6 +2,9 @@ import { Atom } from "@effect-atom/atom-react"
 import { Effect } from "effect"
 import type { User } from "@/src/stock-trading/domain/model"
 import { AuthService } from "@/src/stock-trading/services/auth-service"
+import { ordersAtom } from "./trading"
+import { pendingOrdersAtom, lastMatchResultAtom } from "./pending-orders"
+import { watchlistsAtom, activeAlertsAtom } from "./watchlist"
 
 // Service runtime atom - dependency injection
 const runtimeAtom = Atom.runtime(AuthService.Default)
@@ -40,8 +43,19 @@ export const logoutAtom = runtimeAtom.fn((_: void, get) =>
   Effect.gen(function* () {
     const auth = yield* AuthService
     yield* auth.logout()
+
+    // Reset user & auth UI state
     get.set(currentUserAtom, null)
+    get.set(usernameInputAtom, "")
+    get.set(passwordInputAtom, "")
     get.set(loginErrorAtom, "")
+
+    // Reset trading state to prevent data leaks between users
+    get.set(ordersAtom, [])
+    get.set(pendingOrdersAtom, [])
+    get.set(lastMatchResultAtom, null)
+    get.set(watchlistsAtom, [])
+    get.set(activeAlertsAtom, [])
   })
 )
 

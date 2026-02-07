@@ -96,6 +96,12 @@ export class OrderMatchingService extends Effect.Service<OrderMatchingService>()
         }
 
         const order = found.value
+
+        // 소유권 검증: 다른 사용자의 주문은 존재하지 않는 것처럼 처리
+        if (order.userId !== userId) {
+          return yield* Effect.fail(new OrderNotFound({ id: orderId }))
+        }
+
         if (order.status === "cancelled") {
           return yield* Effect.fail(new OrderAlreadyCancelled({ id: orderId }))
         }

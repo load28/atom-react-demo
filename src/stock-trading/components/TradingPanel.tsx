@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
-import { Exit } from "effect"
+import { Exit, Cause } from "effect"
 import type { StockSymbol, OrderExecutionType } from "@/src/stock-trading/domain/model"
 import { currentUserAtom } from "@/src/stock-trading/atoms/auth"
 import { stockListAtom } from "@/src/stock-trading/atoms/stock"
@@ -30,6 +30,7 @@ export const TradingPanel = () => {
   const [limitPrice, setLimitPrice] = useState<string>("")
   const [stopPrice, setStopPrice] = useState<string>("")
   const [message, setMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   const currentUser = useAtomValue(currentUserAtom)
   const stocks = useAtomValue(stockListAtom)
@@ -44,35 +45,64 @@ export const TradingPanel = () => {
   const needsLimitPrice = executionType === "limit" || executionType === "stop_limit"
   const needsStopPrice = executionType === "stop" || executionType === "stop_limit"
 
+  const extractErrorMessage = (exit: Exit.Exit<unknown, unknown>): string => {
+    if (!Exit.isFailure(exit)) return ""
+    const error = Cause.failureOption(exit.cause)
+    if (error._tag === "Some") {
+      const e = error.value
+      if (e !== null && typeof e === "object" && "_tag" in e) {
+        switch ((e as any)._tag) {
+          case "InsufficientBalance":
+            return `잔고 부족: ₩${(e as any).required.toLocaleString()} 필요 (현재 ₩${(e as any).available.toLocaleString()})`
+          case "InsufficientShares":
+            return `보유 수량 부족: ${(e as any).symbol} ${(e as any).required}주 필요 (현재 ${(e as any).available}주)`
+          case "StockNotFound":
+            return `종목을 찾을 수 없습니다: ${(e as any).symbol}`
+          case "OrderExpired":
+            return `주문이 만료되었습니다`
+          case "OrderAlreadyCancelled":
+            return `주문이 이미 취소되었습니다`
+          default:
+            return `주문 실패: ${(e as any)._tag}`
+        }
+      }
+      return "주문 실패: 알 수 없는 오류"
+    }
+    return "주문 실패: 잔고 또는 보유수량을 확인하세요"
+  }
+
   const handleTrade = async (type: "buy" | "sell") => {
     setMessage("")
+    setIsLoading(true)
 
-    if (executionType === "market") {
-      // 시장가 주문: 기존 로직
-      const action = type === "buy" ? buy : sell
-      const exit = await action({ symbol: selectedSymbol as StockSymbol, quantity })
-      if (Exit.isSuccess(exit)) {
-        setMessage(`${type === "buy" ? "매수" : "매도"} 완료: ${selectedSymbol} ${quantity}주`)
+    try {
+      if (executionType === "market") {
+        const action = type === "buy" ? buy : sell
+        const exit = await action({ symbol: selectedSymbol as StockSymbol, quantity })
+        if (Exit.isSuccess(exit)) {
+          setMessage(`${type === "buy" ? "매수" : "매도"} 완료: ${selectedSymbol} ${quantity}주`)
+        } else {
+          setMessage(extractErrorMessage(exit))
+        }
       } else {
-        setMessage(`주문 실패: 잔고 또는 보유수량을 확인하세요`)
+        const exit = await placeConditional({
+          symbol: selectedSymbol as StockSymbol,
+          type,
+          executionType,
+          quantity,
+          limitPrice: needsLimitPrice ? Number(limitPrice) : undefined,
+          stopPrice: needsStopPrice ? Number(stopPrice) : undefined,
+        })
+        if (Exit.isSuccess(exit)) {
+          setMessage(`${EXECUTION_LABELS[executionType]} ${type === "buy" ? "매수" : "매도"} 주문 등록: ${selectedSymbol} ${quantity}주`)
+          setLimitPrice("")
+          setStopPrice("")
+        } else {
+          setMessage(extractErrorMessage(exit))
+        }
       }
-    } else {
-      // 조건부 주문: OrderMatchingService
-      const exit = await placeConditional({
-        symbol: selectedSymbol as StockSymbol,
-        type,
-        executionType,
-        quantity,
-        limitPrice: needsLimitPrice ? Number(limitPrice) : undefined,
-        stopPrice: needsStopPrice ? Number(stopPrice) : undefined,
-      })
-      if (Exit.isSuccess(exit)) {
-        setMessage(`${EXECUTION_LABELS[executionType]} ${type === "buy" ? "매수" : "매도"} 주문 등록: ${selectedSymbol} ${quantity}주`)
-        setLimitPrice("")
-        setStopPrice("")
-      } else {
-        setMessage(`주문 실패: 조건을 확인하세요`)
-      }
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -180,19 +210,19 @@ export const TradingPanel = () => {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleTrade("buy")}
-              disabled={!selectedSymbol || !isConditionalValid}
+              disabled={!selectedSymbol || !isConditionalValid || isLoading}
               data-testid="buy-button"
               className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {executionType === "market" ? "매수" : `${EXECUTION_LABELS[executionType]} 매수`}
+              {isLoading ? "처리 중..." : executionType === "market" ? "매수" : `${EXECUTION_LABELS[executionType]} 매수`}
             </button>
             <button
               onClick={() => handleTrade("sell")}
-              disabled={!selectedSymbol || !isConditionalValid}
+              disabled={!selectedSymbol || !isConditionalValid || isLoading}
               data-testid="sell-button"
               className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {executionType === "market" ? "매도" : `${EXECUTION_LABELS[executionType]} 매도`}
+              {isLoading ? "처리 중..." : executionType === "market" ? "매도" : `${EXECUTION_LABELS[executionType]} 매도`}
             </button>
           </div>
         </div>
