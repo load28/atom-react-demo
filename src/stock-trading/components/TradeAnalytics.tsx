@@ -35,7 +35,7 @@ export const TradeAnalytics = () => {
             <div className="space-y-1">
               <span className="text-xs text-gray-500">순 손익</span>
               <div className={`text-sm font-bold ${stats.netPnL >= 0 ? "text-green-600" : "text-red-500"}`}>
-                {stats.netPnL >= 0 ? "+" : ""}₩{stats.netPnL.toLocaleString()}
+                {stats.netPnL >= 0 ? "+" : ""}₩{stats.netPnL.toLocaleString("ko-KR")}
               </div>
             </div>
             <div className="space-y-1">
@@ -52,7 +52,7 @@ export const TradeAnalytics = () => {
               <div className="p-3 rounded-md bg-green-50 border border-green-200" data-testid="best-trade">
                 <span className="text-xs font-medium text-green-700">최고 거래</span>
                 <div className="mt-1 text-sm font-semibold text-green-600">
-                  {stats.bestTrade.symbol} +₩{stats.bestTrade.profit.toLocaleString()}
+                  {stats.bestTrade.symbol} +₩{stats.bestTrade.profit.toLocaleString("ko-KR")}
                   <span className="text-xs ml-1">(+{stats.bestTrade.profitPercent.toFixed(1)}%)</span>
                 </div>
               </div>
@@ -61,7 +61,7 @@ export const TradeAnalytics = () => {
               <div className="p-3 rounded-md bg-red-50 border border-red-200" data-testid="worst-trade">
                 <span className="text-xs font-medium text-red-700">최악 거래</span>
                 <div className="mt-1 text-sm font-semibold text-red-500">
-                  {stats.worstTrade.symbol} ₩{stats.worstTrade.profit.toLocaleString()}
+                  {stats.worstTrade.symbol} ₩{stats.worstTrade.profit.toLocaleString("ko-KR")}
                   <span className="text-xs ml-1">({stats.worstTrade.profitPercent.toFixed(1)}%)</span>
                 </div>
               </div>
@@ -76,9 +76,9 @@ export const TradeAnalytics = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">거래 수</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">순 손익</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">거래 수</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">순 손익</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -87,7 +87,7 @@ export const TradeAnalytics = () => {
                     <td className="px-5 py-2 text-sm font-medium text-gray-900">{symbol}</td>
                     <td className="px-5 py-2 text-sm text-right text-gray-700">{data.count}건</td>
                     <td className={`px-5 py-2 text-sm text-right font-medium ${data.netPnL >= 0 ? "text-green-600" : "text-red-500"}`}>
-                      {data.netPnL >= 0 ? "+" : ""}₩{data.netPnL.toLocaleString()}
+                      {data.netPnL >= 0 ? "+" : ""}₩{data.netPnL.toLocaleString("ko-KR")}
                     </td>
                   </tr>
                 ))}
@@ -103,21 +103,21 @@ export const TradeAnalytics = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매수가</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매도가</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">손익</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">보유 기간</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매수가</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매도가</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">손익</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">보유 기간</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {[...pairs].reverse().slice(0, 10).map((pair, i) => (
                   <tr key={`${pair.buyOrder.id}-${pair.sellOrder.id}`} data-testid={`trade-pair-${i}`}>
                     <td className="px-5 py-2 text-sm font-medium text-gray-900">{pair.symbol}</td>
-                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{pair.buyOrder.price.toLocaleString()}</td>
-                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{pair.sellOrder.price.toLocaleString()}</td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{pair.buyOrder.price.toLocaleString("ko-KR")}</td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{pair.sellOrder.price.toLocaleString("ko-KR")}</td>
                     <td className={`px-5 py-2 text-sm text-right font-medium ${pair.profit >= 0 ? "text-green-600" : "text-red-500"}`}>
-                      {pair.profit >= 0 ? "+" : ""}₩{pair.profit.toLocaleString()}
+                      {pair.profit >= 0 ? "+" : ""}₩{pair.profit.toLocaleString("ko-KR")}
                       <span className="text-xs ml-1">({pair.profitPercent.toFixed(1)}%)</span>
                     </td>
                     <td className="px-5 py-2 text-sm text-right text-gray-500">

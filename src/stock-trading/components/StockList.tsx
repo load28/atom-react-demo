@@ -34,7 +34,11 @@ export const StockList = () => {
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900">시세</h2>
           <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-            <span className={`inline-block w-2 h-2 rounded-full ${STATUS_COLOR[wsStatus] ?? "bg-gray-400"} ${wsStatus === "connected" ? "animate-pulse" : ""}`} />
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${STATUS_COLOR[wsStatus] ?? "bg-gray-400"} ${wsStatus === "connected" ? "animate-pulse" : ""}`}
+              role="img"
+              aria-label={`연결 상태: ${STATUS_LABEL[wsStatus] ?? wsStatus}`}
+            />
             {STATUS_LABEL[wsStatus] ?? wsStatus}
           </span>
         </div>
@@ -74,10 +78,10 @@ export const StockList = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">종목</th>
-                <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">현재가</th>
-                <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">변동</th>
-                <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">변동률</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">종목</th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">현재가</th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">변동</th>
+                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">변동률</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -100,7 +104,7 @@ export const StockList = () => {
                       <div className="text-xs text-gray-500">{stock.name}</div>
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-900">
-                      ₩{stock.price.toLocaleString()}
+                      ₩{stock.price.toLocaleString("ko-KR")}
                     </td>
                     <td className={`px-5 py-3 text-right font-medium ${stock.change >= 0 ? "text-red-500" : "text-blue-500"}`}>
                       {stock.change >= 0 ? "+" : ""}{stock.change.toFixed(1)}

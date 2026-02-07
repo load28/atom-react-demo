@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
 import { Exit, Cause } from "effect"
 import type { StockSymbol, OrderExecutionType } from "@/src/stock-trading/domain/model"
+import type { InsufficientBalance, InsufficientShares, StockNotFound, OrderExpired, OrderAlreadyCancelled } from "@/src/stock-trading/domain/errors"
 import { currentUserAtom } from "@/src/stock-trading/atoms/auth"
 import { stockListAtom } from "@/src/stock-trading/atoms/stock"
 import { placeBuyOrderAtom, placeSellOrderAtom, ordersAtom } from "@/src/stock-trading/atoms/trading"
@@ -45,25 +46,34 @@ export const TradingPanel = () => {
   const needsLimitPrice = executionType === "limit" || executionType === "stop_limit"
   const needsStopPrice = executionType === "stop" || executionType === "stop_limit"
 
+  type TradingError = InsufficientBalance | InsufficientShares | StockNotFound | OrderExpired | OrderAlreadyCancelled
+
+  const isTaggedError = (e: unknown): e is { readonly _tag: string } =>
+    e !== null && typeof e === "object" && "_tag" in e
+
   const extractErrorMessage = (exit: Exit.Exit<unknown, unknown>): string => {
     if (!Exit.isFailure(exit)) return ""
     const error = Cause.failureOption(exit.cause)
     if (error._tag === "Some") {
       const e = error.value
-      if (e !== null && typeof e === "object" && "_tag" in e) {
-        switch ((e as any)._tag) {
-          case "InsufficientBalance":
-            return `잔고 부족: ₩${(e as any).required.toLocaleString()} 필요 (현재 ₩${(e as any).available.toLocaleString()})`
-          case "InsufficientShares":
-            return `보유 수량 부족: ${(e as any).symbol} ${(e as any).required}주 필요 (현재 ${(e as any).available}주)`
+      if (isTaggedError(e)) {
+        switch (e._tag) {
+          case "InsufficientBalance": {
+            const err = e as InsufficientBalance
+            return `잔고 부족: ₩${err.required.toLocaleString("ko-KR")} 필요 (현재 ₩${err.available.toLocaleString("ko-KR")})`
+          }
+          case "InsufficientShares": {
+            const err = e as InsufficientShares
+            return `보유 수량 부족: ${err.symbol} ${err.required}주 필요 (현재 ${err.available}주)`
+          }
           case "StockNotFound":
-            return `종목을 찾을 수 없습니다: ${(e as any).symbol}`
+            return `종목을 찾을 수 없습니다: ${(e as StockNotFound).symbol}`
           case "OrderExpired":
             return `주문이 만료되었습니다`
           case "OrderAlreadyCancelled":
             return `주문이 이미 취소되었습니다`
           default:
-            return `주문 실패: ${(e as any)._tag}`
+            return `주문 실패: ${e._tag}`
         }
       }
       return "주문 실패: 알 수 없는 오류"
@@ -139,7 +149,9 @@ export const TradingPanel = () => {
           <p className="text-xs text-gray-400">{EXECUTION_DESCRIPTIONS[executionType]}</p>
 
           {/* 종목 선택 */}
+          <label htmlFor="trading-symbol" className="sr-only">종목 선택</label>
           <select
+            id="trading-symbol"
             value={selectedSymbol}
             onChange={(e) => setSelectedSymbol(e.target.value)}
             data-testid="symbol-select"
@@ -157,16 +169,22 @@ export const TradingPanel = () => {
           {selectedStock && (
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
               <span className="text-xs text-gray-500">현재가</span>
-              <span className="text-sm font-semibold text-gray-900">₩{selectedStock.price.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-gray-900">₩{selectedStock.price.toLocaleString("ko-KR")}</span>
             </div>
           )}
 
           {/* 수량 */}
+          <label htmlFor="trading-quantity" className="sr-only">수량</label>
           <input
+            id="trading-quantity"
             type="number"
             min={1}
+            step={1}
             value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Math.max(1, Math.floor(Number(e.target.value)))
+              setQuantity(Number.isNaN(v) ? 1 : v)
+            }}
             placeholder="수량"
             data-testid="quantity-input"
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -243,11 +261,11 @@ export const TradingPanel = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">가격</th>
-                  <th className="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">가격</th>
+                  <th scope="col" className="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -258,7 +276,7 @@ export const TradingPanel = () => {
                       {order.type === "buy" ? "매수" : "매도"}
                     </td>
                     <td className="px-5 py-2 text-sm text-right text-gray-700">{order.quantity}</td>
-                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{order.price.toLocaleString()}</td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{order.price.toLocaleString("ko-KR")}</td>
                     <td className="px-5 py-2 text-sm text-center">
                       <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
                         {order.status}

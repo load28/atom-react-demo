@@ -91,6 +91,9 @@ export const createStockFeed = (config: StockFeedConfig, callbacks: StockFeedCal
       try {
         message = JSON.parse(event.data)
       } catch {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[stock-feed] Failed to parse message:", event.data)
+        }
         return
       }
 
@@ -99,7 +102,7 @@ export const createStockFeed = (config: StockFeedConfig, callbacks: StockFeedCal
           const result = decodeStockTick(message.data)
           if (result._tag === "Right") {
             callbacks.onTick(result.right)
-          } else {
+          } else if (process.env.NODE_ENV !== "production") {
             console.warn("[stock-feed] Invalid tick message, skipping:", result.left)
           }
           break
@@ -108,7 +111,7 @@ export const createStockFeed = (config: StockFeedConfig, callbacks: StockFeedCal
           const result = decodeStockTickArray(message.data)
           if (result._tag === "Right") {
             callbacks.onSnapshot(result.right)
-          } else {
+          } else if (process.env.NODE_ENV !== "production") {
             console.warn("[stock-feed] Invalid snapshot message, skipping:", result.left)
           }
           break

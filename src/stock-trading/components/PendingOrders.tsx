@@ -51,12 +51,12 @@ export const PendingOrders = () => {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">조건가</th>
-              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
-              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase"></th>
+              <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+              <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+              <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
+              <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">조건가</th>
+              <th scope="col" className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+              <th scope="col" className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase"><span className="sr-only">작업</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -74,12 +74,12 @@ export const PendingOrders = () => {
                   <div className="text-sm text-gray-700">
                     {order.limitPrice && (
                       <div className="text-xs">
-                        <span className="text-amber-600">지정</span> ₩{order.limitPrice.toLocaleString()}
+                        <span className="text-amber-600">지정</span> ₩{order.limitPrice.toLocaleString("ko-KR")}
                       </div>
                     )}
                     {order.stopPrice && (
                       <div className="text-xs">
-                        <span className="text-orange-600">스탑</span> ₩{order.stopPrice.toLocaleString()}
+                        <span className="text-orange-600">스탑</span> ₩{order.stopPrice.toLocaleString("ko-KR")}
                       </div>
                     )}
                   </div>
