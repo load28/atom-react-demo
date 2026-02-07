@@ -76,9 +76,9 @@ export const TradeAnalytics = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">거래 수</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">순 손익</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">거래 수</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">순 손익</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -103,11 +103,11 @@ export const TradeAnalytics = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매수가</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매도가</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">손익</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">보유 기간</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매수가</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">매도가</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">손익</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">보유 기간</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
