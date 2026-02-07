@@ -5,6 +5,7 @@ import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
 import { Exit, Cause } from "effect"
 import type { StockSymbol } from "@/src/stock-trading/domain/model"
 import type { AlertConditionType, WatchlistId, AlertId } from "@/src/stock-trading/domain/watchlist-model"
+import type { DuplicateSymbolInWatchlist } from "@/src/stock-trading/domain/watchlist-errors"
 import { stockListAtom, priceMapAtom } from "@/src/stock-trading/atoms/stock"
 import {
   watchlistsAtom,
@@ -50,21 +51,24 @@ export const WatchlistPanel = () => {
 
   const activeAlerts = allAlerts.filter((a) => a.status === "active")
 
+  const isTaggedError = (e: unknown): e is { readonly _tag: string } =>
+    e !== null && typeof e === "object" && "_tag" in e
+
   const extractWatchlistError = (exit: Exit.Exit<unknown, unknown>): string => {
     if (!Exit.isFailure(exit)) return ""
     const error = Cause.failureOption(exit.cause)
     if (error._tag === "Some") {
       const e = error.value
-      if (e !== null && typeof e === "object" && "_tag" in e) {
-        switch ((e as any)._tag) {
+      if (isTaggedError(e)) {
+        switch (e._tag) {
           case "DuplicateSymbolInWatchlist":
-            return `이미 추가된 종목입니다: ${(e as any).symbol}`
+            return `이미 추가된 종목입니다: ${(e as DuplicateSymbolInWatchlist).symbol}`
           case "WatchlistNotFound":
             return "워치리스트를 찾을 수 없습니다"
           case "AlertNotFound":
             return "알림을 찾을 수 없습니다"
           default:
-            return `실패: ${(e as any)._tag}`
+            return `실패: ${e._tag}`
         }
       }
     }

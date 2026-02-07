@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useAtomValue, useAtomSet } from "@effect-atom/atom-react/Hooks"
 import { Exit, Cause } from "effect"
 import type { StockSymbol, OrderExecutionType } from "@/src/stock-trading/domain/model"
+import type { InsufficientBalance, InsufficientShares, StockNotFound, OrderExpired, OrderAlreadyCancelled } from "@/src/stock-trading/domain/errors"
 import { currentUserAtom } from "@/src/stock-trading/atoms/auth"
 import { stockListAtom } from "@/src/stock-trading/atoms/stock"
 import { placeBuyOrderAtom, placeSellOrderAtom, ordersAtom } from "@/src/stock-trading/atoms/trading"
@@ -45,25 +46,34 @@ export const TradingPanel = () => {
   const needsLimitPrice = executionType === "limit" || executionType === "stop_limit"
   const needsStopPrice = executionType === "stop" || executionType === "stop_limit"
 
+  type TradingError = InsufficientBalance | InsufficientShares | StockNotFound | OrderExpired | OrderAlreadyCancelled
+
+  const isTaggedError = (e: unknown): e is { readonly _tag: string } =>
+    e !== null && typeof e === "object" && "_tag" in e
+
   const extractErrorMessage = (exit: Exit.Exit<unknown, unknown>): string => {
     if (!Exit.isFailure(exit)) return ""
     const error = Cause.failureOption(exit.cause)
     if (error._tag === "Some") {
       const e = error.value
-      if (e !== null && typeof e === "object" && "_tag" in e) {
-        switch ((e as any)._tag) {
-          case "InsufficientBalance":
-            return `잔고 부족: ₩${(e as any).required.toLocaleString()} 필요 (현재 ₩${(e as any).available.toLocaleString()})`
-          case "InsufficientShares":
-            return `보유 수량 부족: ${(e as any).symbol} ${(e as any).required}주 필요 (현재 ${(e as any).available}주)`
+      if (isTaggedError(e)) {
+        switch (e._tag) {
+          case "InsufficientBalance": {
+            const err = e as InsufficientBalance
+            return `잔고 부족: ₩${err.required.toLocaleString("ko-KR")} 필요 (현재 ₩${err.available.toLocaleString("ko-KR")})`
+          }
+          case "InsufficientShares": {
+            const err = e as InsufficientShares
+            return `보유 수량 부족: ${err.symbol} ${err.required}주 필요 (현재 ${err.available}주)`
+          }
           case "StockNotFound":
-            return `종목을 찾을 수 없습니다: ${(e as any).symbol}`
+            return `종목을 찾을 수 없습니다: ${(e as StockNotFound).symbol}`
           case "OrderExpired":
             return `주문이 만료되었습니다`
           case "OrderAlreadyCancelled":
             return `주문이 이미 취소되었습니다`
           default:
-            return `주문 실패: ${(e as any)._tag}`
+            return `주문 실패: ${e._tag}`
         }
       }
       return "주문 실패: 알 수 없는 오류"
