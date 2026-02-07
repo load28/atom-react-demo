@@ -3,7 +3,7 @@ import type { Holding, Order, Stock, StockSymbol } from "./model"
 // ── Holding P&L ──
 export const calculateHoldingPnL = (holding: Holding, currentPrice: number) => ({
   unrealizedPnL: (currentPrice - holding.averagePrice) * holding.quantity,
-  pnlPercent: ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100,
+  pnlPercent: holding.averagePrice === 0 ? 0 : ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100,
 })
 
 // ── Portfolio Value ──
@@ -16,7 +16,7 @@ export const calculatePortfolioValue = (
 // ── Price Change ──
 export const calculatePriceChange = (stock: Stock) => ({
   change: stock.price - stock.previousClose,
-  changePercent: ((stock.price - stock.previousClose) / stock.previousClose) * 100,
+  changePercent: stock.previousClose === 0 ? 0 : ((stock.price - stock.previousClose) / stock.previousClose) * 100,
 })
 
 // ── 주문 매칭 조건 평가 (순수 함수) ──
