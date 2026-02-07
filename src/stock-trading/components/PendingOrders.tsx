@@ -74,12 +74,12 @@ export const PendingOrders = () => {
                   <div className="text-sm text-gray-700">
                     {order.limitPrice && (
                       <div className="text-xs">
-                        <span className="text-amber-600">지정</span> ₩{order.limitPrice.toLocaleString()}
+                        <span className="text-amber-600">지정</span> ₩{order.limitPrice.toLocaleString("ko-KR")}
                       </div>
                     )}
                     {order.stopPrice && (
                       <div className="text-xs">
-                        <span className="text-orange-600">스탑</span> ₩{order.stopPrice.toLocaleString()}
+                        <span className="text-orange-600">스탑</span> ₩{order.stopPrice.toLocaleString("ko-KR")}
                       </div>
                     )}
                   </div>

@@ -20,22 +20,22 @@ export const PortfolioView = () => {
       <div className="p-5 grid grid-cols-2 gap-4" data-testid="portfolio-summary">
         <div className="space-y-1">
           <span className="text-xs text-gray-500">총 평가금액</span>
-          <div className="text-sm font-bold text-gray-900">₩{pnl.totalValue.toLocaleString()}</div>
+          <div className="text-sm font-bold text-gray-900">₩{pnl.totalValue.toLocaleString("ko-KR")}</div>
         </div>
         <div className="space-y-1">
           <span className="text-xs text-gray-500">총 투자금액</span>
-          <div className="text-sm font-medium text-gray-700">₩{pnl.totalCost.toLocaleString()}</div>
+          <div className="text-sm font-medium text-gray-700">₩{pnl.totalCost.toLocaleString("ko-KR")}</div>
         </div>
         <div className="space-y-1">
           <span className="text-xs text-gray-500">총 손익</span>
           <div className={`text-sm font-bold ${pnl.totalPnL >= 0 ? "text-red-500" : "text-blue-500"}`}>
-            {pnl.totalPnL >= 0 ? "+" : ""}₩{pnl.totalPnL.toLocaleString()}
+            {pnl.totalPnL >= 0 ? "+" : ""}₩{pnl.totalPnL.toLocaleString("ko-KR")}
             <span className="text-xs ml-1">({pnl.totalPnLPercent.toFixed(2)}%)</span>
           </div>
         </div>
         <div className="space-y-1">
           <span className="text-xs text-gray-500">보유 현금</span>
-          <div className="text-sm font-medium text-gray-700">₩{currentUser.balance.toLocaleString()}</div>
+          <div className="text-sm font-medium text-gray-700">₩{currentUser.balance.toLocaleString("ko-KR")}</div>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export const PortfolioView = () => {
                 <tr key={h.symbol} data-testid={`holding-row-${h.symbol}`}>
                   <td className="px-5 py-2 text-sm font-medium text-gray-900">{h.symbol}</td>
                   <td className="px-5 py-2 text-sm text-right text-gray-700">{h.quantity}</td>
-                  <td className="px-5 py-2 text-sm text-right text-gray-700">₩{h.averagePrice.toLocaleString()}</td>
+                  <td className="px-5 py-2 text-sm text-right text-gray-700">₩{h.averagePrice.toLocaleString("ko-KR")}</td>
                 </tr>
               ))}
             </tbody>

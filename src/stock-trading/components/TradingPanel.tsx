@@ -169,7 +169,7 @@ export const TradingPanel = () => {
           {selectedStock && (
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
               <span className="text-xs text-gray-500">현재가</span>
-              <span className="text-sm font-semibold text-gray-900">₩{selectedStock.price.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-gray-900">₩{selectedStock.price.toLocaleString("ko-KR")}</span>
             </div>
           )}
 
@@ -276,7 +276,7 @@ export const TradingPanel = () => {
                       {order.type === "buy" ? "매수" : "매도"}
                     </td>
                     <td className="px-5 py-2 text-sm text-right text-gray-700">{order.quantity}</td>
-                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{order.price.toLocaleString()}</td>
+                    <td className="px-5 py-2 text-sm text-right text-gray-700">₩{order.price.toLocaleString("ko-KR")}</td>
                     <td className="px-5 py-2 text-sm text-center">
                       <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
                         {order.status}

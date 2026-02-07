@@ -24,7 +24,7 @@ export const LoginForm = () => {
     return (
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-gray-700">{currentUser.username}</span>
-        <span className="text-sm font-semibold text-blue-600">₩{currentUser.balance.toLocaleString()}</span>
+        <span className="text-sm font-semibold text-blue-600">₩{currentUser.balance.toLocaleString("ko-KR")}</span>
         <button
           onClick={() => logout()}
           aria-label="로그아웃"

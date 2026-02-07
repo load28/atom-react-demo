@@ -104,7 +104,7 @@ export const StockList = () => {
                       <div className="text-xs text-gray-500">{stock.name}</div>
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-900">
-                      ₩{stock.price.toLocaleString()}
+                      ₩{stock.price.toLocaleString("ko-KR")}
                     </td>
                     <td className={`px-5 py-3 text-right font-medium ${stock.change >= 0 ? "text-red-500" : "text-blue-500"}`}>
                       {stock.change >= 0 ? "+" : ""}{stock.change.toFixed(1)}

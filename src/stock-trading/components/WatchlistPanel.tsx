@@ -192,7 +192,7 @@ export const WatchlistPanel = () => {
                       <div key={symbol} className="flex items-center justify-between text-sm">
                         <span className="text-gray-700">{symbol}</span>
                         <span className="font-medium text-gray-900">
-                          {price !== undefined ? `₩${price.toLocaleString()}` : "-"}
+                          {price !== undefined ? `₩${price.toLocaleString("ko-KR")}` : "-"}
                         </span>
                       </div>
                     )
