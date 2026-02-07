@@ -232,8 +232,12 @@ export const WatchlistPanel = () => {
               </option>
             ))}
           </select>
+          <label htmlFor="alert-target" className="sr-only">목표 값</label>
           <input
+            id="alert-target"
             type="number"
+            min={0}
+            step="any"
             value={alertTarget}
             onChange={(e) => setAlertTarget(e.target.value)}
             placeholder="목표 값"

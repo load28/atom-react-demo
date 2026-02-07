@@ -179,8 +179,12 @@ export const TradingPanel = () => {
             id="trading-quantity"
             type="number"
             min={1}
+            step={1}
             value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Math.max(1, Math.floor(Number(e.target.value)))
+              setQuantity(Number.isNaN(v) ? 1 : v)
+            }}
             placeholder="수량"
             data-testid="quantity-input"
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
