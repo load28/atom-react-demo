@@ -87,9 +87,9 @@ export const RiskDashboard = () => {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-              <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">변동성</th>
-              <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">MDD</th>
+              <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+              <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">변동성</th>
+              <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">MDD</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

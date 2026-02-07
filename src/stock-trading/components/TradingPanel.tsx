@@ -139,7 +139,9 @@ export const TradingPanel = () => {
           <p className="text-xs text-gray-400">{EXECUTION_DESCRIPTIONS[executionType]}</p>
 
           {/* 종목 선택 */}
+          <label htmlFor="trading-symbol" className="sr-only">종목 선택</label>
           <select
+            id="trading-symbol"
             value={selectedSymbol}
             onChange={(e) => setSelectedSymbol(e.target.value)}
             data-testid="symbol-select"
@@ -162,7 +164,9 @@ export const TradingPanel = () => {
           )}
 
           {/* 수량 */}
+          <label htmlFor="trading-quantity" className="sr-only">수량</label>
           <input
+            id="trading-quantity"
             type="number"
             min={1}
             value={quantity}
@@ -243,11 +247,11 @@ export const TradingPanel = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-                  <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
-                  <th className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">가격</th>
-                  <th className="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+                  <th scope="col" className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
+                  <th scope="col" className="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">가격</th>
+                  <th scope="col" className="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

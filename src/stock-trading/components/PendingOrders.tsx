@@ -51,12 +51,12 @@ export const PendingOrders = () => {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">조건가</th>
-              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
-              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase"></th>
+              <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">종목</th>
+              <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+              <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">수량</th>
+              <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">조건가</th>
+              <th scope="col" className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+              <th scope="col" className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase"><span className="sr-only">작업</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

@@ -28,12 +28,15 @@ export const ToastContainer = () => {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm" role="region" aria-label="알림">
       {notifications.map((notif) => {
         const style = TOAST_STYLES[notif.type]
         return (
           <div
             key={notif.id}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             className={`px-4 py-3 rounded-lg border shadow-lg ${style.bg} ${style.border} animate-in slide-in-from-right`}
           >
             <p className={`text-sm font-medium ${style.text}`}>{notif.message}</p>
