@@ -13,6 +13,12 @@ export const MSWProvider = ({ children }: { children: ReactNode }) => {
       .then(() => setReady(true))
   }, [])
 
-  if (!ready) return null
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-sm text-gray-400">로딩 중...</p>
+      </div>
+    )
+  }
   return <>{children}</>
 }
